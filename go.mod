@@ -1,4 +1,4 @@
-module chess-fe-go
+module github.com/jjj333-p/chess-fe-go
 
 go 1.23
 
