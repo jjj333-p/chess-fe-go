@@ -15,22 +15,25 @@ type ChessPiece struct {
 	imageEL *canvas.Image
 }
 
-func NewDefaultPieceForPosition(x int, y int) *ChessPiece {
+// rank is 0-7 (representing ranks 1-8)
+// file is 0-7 (representing files a-h)
+func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 	newPiece := ChessPiece{}
 
-	if y > 1 && y < 6 {
+	// Empty squares (ranks 3-6)
+	if rank > 1 && rank < 6 {
 		return &newPiece
 	}
 
-	//top side is black
-	newPiece.black = y > 3
+	// Black pieces on ranks 7-8 (index 6-7), White pieces on ranks 1-2 (index 0-1)
+	newPiece.black = rank > 4
 
-	//outer pieces are always pawns
-	if y == 1 || y == 6 {
+	// Pawns on ranks 2 and 7 (index 1 and 6)
+	if rank == 1 || rank == 6 {
 		newPiece.piece = "pawn"
 	} else {
-		// https://www.regencychess.co.uk/images/how-to-set-up-a-chessboard/how-to-set-up-a-chessboard-7.jpg
-		switch x {
+		// Back rank pieces (ranks 1 and 8)
+		switch file {
 		case 0, 7:
 			newPiece.piece = "rook"
 		case 1, 6:
@@ -44,19 +47,14 @@ func NewDefaultPieceForPosition(x int, y int) *ChessPiece {
 		}
 	}
 
-	//get the image asset
-	var colorName string
+	colorName := "white"
 	if newPiece.black {
 		colorName = "black"
-	} else {
-		colorName = "white"
 	}
 	newPiece.imageEL = canvas.NewImageFromFile("./assets/pieces/" + colorName + "/" + newPiece.piece + ".png")
-
 	newPiece.imageEL.FillMode = canvas.ImageFillContain
 	newPiece.imageEL.SetMinSize(fyne.NewSize(40, 40))
 
-	//new instance of newPiece
 	return &newPiece
 }
 
@@ -66,14 +64,15 @@ type ChessTile struct {
 	uiEL   *fyne.Container
 }
 
-func initChessTileAtPos(x int, y int) *ChessTile {
-
-	//init things
-	piece := NewDefaultPieceForPosition(x, y)
+func initChessTileAtPos(rank, file int) *ChessTile {
+	piece := NewDefaultPieceForPosition(rank, file)
 	button := widget.NewButton("", func() {
-		fmt.Println("button clicked", x, y)
+		// Convert to chess notation for better debugging
+		fileChar := rune('a' + file)
+		rankNum := rank + 1
+		fmt.Printf("Clicked square %c%d\n", fileChar, rankNum)
 	})
-	//uiEL := container.NewVBox(piece.imageEL, button)
+
 	var uiEL *fyne.Container
 	if piece.imageEL == nil {
 		uiEL = container.NewVBox(button)
@@ -81,7 +80,6 @@ func initChessTileAtPos(x int, y int) *ChessTile {
 		uiEL = container.NewVBox(piece.imageEL, button)
 	}
 
-	//create obj and return
 	return &ChessTile{
 		piece:  piece,
 		button: button,
@@ -96,27 +94,19 @@ type ChessBoard struct {
 
 func NewChessBoard() *ChessBoard {
 	board := ChessBoard{}
-
-	//1d array for grid layout
 	uiTiles := make([]fyne.CanvasObject, 64)
 
 	iter := 0
-	for x := 0; x < 8; x++ {
-		for y := 0; y < 8; y++ {
-
-			//init tile
-			tile := initChessTileAtPos(x, y)
-
-			//2d array for managing easier
-			board.Tiles[x][y] = tile
-
-			//1d array for grid layout
+	// Start from rank 7 (index) downward to match chess convention
+	for rank := 7; rank >= 0; rank-- {
+		for file := 0; file < 8; file++ {
+			tile := initChessTileAtPos(rank, file)
+			board.Tiles[rank][file] = tile
 			uiTiles[iter] = tile.uiEL
 			iter++
 		}
 	}
 
 	board.Grid = container.New(layout.NewGridLayout(8), uiTiles...)
-
 	return &board
 }
