@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"github.com/jjj333-p/chess-fe-go/chessboard"
 	"net/http"
 )
 
@@ -50,7 +51,17 @@ func login(creds credentials) loginResponse {
 }
 
 func practiceGame() bool {
-	return false
+	gameApp := app.New()
+	gameWindow := gameApp.NewWindow("Practice Game")
+
+	board := chessboard.NewChessBoard()
+
+	gameWindow.SetContent(board.Grid)
+
+	gameWindow.Resize(fyne.NewSize(400, 400))
+
+	gameWindow.ShowAndRun()
+	return true
 }
 
 func main() {

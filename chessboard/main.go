@@ -53,6 +53,9 @@ func NewDefaultPieceForPosition(x int, y int) *ChessPiece {
 	}
 	newPiece.imageEL = canvas.NewImageFromFile("./assets/pieces/" + colorName + "/" + newPiece.piece + ".png")
 
+	newPiece.imageEL.FillMode = canvas.ImageFillContain
+	newPiece.imageEL.SetMinSize(fyne.NewSize(40, 40))
+
 	//new instance of newPiece
 	return &newPiece
 }
@@ -75,7 +78,7 @@ func initChessTileAtPos(x int, y int) *ChessTile {
 	if piece.imageEL == nil {
 		uiEL = container.NewVBox(button)
 	} else {
-		uiEL = container.NewHBox(piece.imageEL, button)
+		uiEL = container.NewVBox(piece.imageEL, button)
 	}
 
 	//create obj and return
@@ -87,15 +90,15 @@ func initChessTileAtPos(x int, y int) *ChessTile {
 }
 
 type ChessBoard struct {
-	grid  *fyne.Container
-	tiles [8][8]*ChessTile
+	Grid  *fyne.Container
+	Tiles [8][8]*ChessTile
 }
 
 func NewChessBoard() *ChessBoard {
 	board := ChessBoard{}
 
 	//1d array for grid layout
-	tiles := make([]*fyne.CanvasObject, 64)
+	uiTiles := make([]fyne.CanvasObject, 64)
 
 	iter := 0
 	for x := 0; x < 8; x++ {
@@ -105,14 +108,15 @@ func NewChessBoard() *ChessBoard {
 			tile := initChessTileAtPos(x, y)
 
 			//2d array for managing easier
-			board.tiles[x][y] = tile
+			board.Tiles[x][y] = tile
 
 			//1d array for grid layout
-			tiles[iter] = tile.uiEL
+			uiTiles[iter] = tile.uiEL
 			iter++
 		}
 	}
 
-	grid := container.New(layout.NewGridLayout(8), tiles...)
+	board.Grid = container.New(layout.NewGridLayout(8), uiTiles...)
 
+	return &board
 }
