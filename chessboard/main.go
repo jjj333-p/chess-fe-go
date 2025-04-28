@@ -7,6 +7,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"strconv"
 )
 
 type ChessPiece struct {
@@ -15,6 +16,7 @@ type ChessPiece struct {
 	imageEL *canvas.Image
 }
 
+// NewDefaultPieceForPosition creates a new piece based on position
 // rank is 0-7 (representing ranks 1-8)
 // file is 0-7 (representing files a-h)
 func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
@@ -59,31 +61,48 @@ func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 }
 
 type ChessTile struct {
-	piece  *ChessPiece
-	button *widget.Button
-	uiEL   *fyne.Container
+	piece   *ChessPiece
+	button  *widget.Button
+	uiEL    *fyne.Container
+	bgColor *canvas.Image
 }
 
 func initChessTileAtPos(rank, file int) *ChessTile {
 	piece := NewDefaultPieceForPosition(rank, file)
+
+	// Convert to chess notation for better debugging
+	fileChar := rune('a' + file)
+	rankNum := rank + 1
+
+	//move button
 	button := widget.NewButton("", func() {
-		// Convert to chess notation for better debugging
-		fileChar := rune('a' + file)
-		rankNum := rank + 1
 		fmt.Printf("Clicked square %c%d\n", fileChar, rankNum)
 	})
 
-	var uiEL *fyne.Container
+	button.SetText(string(fileChar) + strconv.Itoa(rankNum))
+
+	var top *fyne.Container
 	if piece.imageEL == nil {
-		uiEL = container.NewVBox(button)
+		top = container.NewVBox(layout.NewSpacer(), button)
 	} else {
-		uiEL = container.NewVBox(piece.imageEL, button)
+		top = container.NewVBox(layout.NewSpacer(), piece.imageEL, button)
 	}
 
+	// Determine square color: if rank + file is even, it's a light square
+	isLightSquare := (rank+file)%2 == 0
+	var bgColor *canvas.Image
+	if isLightSquare {
+		bgColor = canvas.NewImageFromFile("./assets/bg/light.png")
+	} else {
+		bgColor = canvas.NewImageFromFile("./assets/bg/dark.png")
+	}
+	bgColor.SetMinSize(fyne.NewSize(70, 70))
+
 	return &ChessTile{
-		piece:  piece,
-		button: button,
-		uiEL:   uiEL,
+		piece:   piece,
+		button:  button,
+		uiEL:    container.NewStack(bgColor, top),
+		bgColor: bgColor,
 	}
 }
 
