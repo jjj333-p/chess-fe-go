@@ -67,6 +67,11 @@ type ChessTile struct {
 	bgColor *canvas.Image
 }
 
+/*
+initChessTileAtPos initializes a tile of the board at a position. This
+implicitly creates a chess piece to place based on starting positions.
+This is not the code that creates the chess tiles though.
+*/
 func initChessTileAtPos(rank, file int) *ChessTile {
 	piece := NewDefaultPieceForPosition(rank, file)
 
@@ -78,6 +83,9 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 	button := widget.NewButton("", func() {
 		fmt.Printf("Clicked square %c%d\n", fileChar, rankNum)
 	})
+
+	//start disabled
+	button.Disable()
 
 	button.SetText(string(fileChar) + strconv.Itoa(rankNum))
 
@@ -109,6 +117,56 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 type ChessBoard struct {
 	Grid  *fyne.Container
 	Tiles [8][8]*ChessTile
+}
+
+func (self *ChessBoard) uiEls(reverse bool) []fyne.CanvasObject {
+	uiTiles := make([]fyne.CanvasObject, 64)
+	iter := 0
+
+	if reverse {
+		for rank := 0; rank < 8; rank++ {
+			for file := 7; file >= 0; file-- {
+				tile := self.Tiles[rank][file]
+				uiTiles[iter] = tile.uiEL
+				iter++
+			}
+		}
+	} else {
+		for rank := 7; rank >= 0; rank-- {
+			for file := 0; file < 8; file++ {
+				tile := self.Tiles[rank][file]
+				uiTiles[iter] = tile.uiEL
+				iter++
+			}
+		}
+	}
+
+	return uiTiles
+}
+
+/*
+MakeMove lays out the ui for the user of this client to make a move.
+Takes `color` (string) which is the color of the user making the move on this client,
+and `assumeFirst` (bool) which allows us to optimize
+*/
+func (self *ChessBoard) MakeMove(color string, lastColor string) {
+	switch color {
+	case "white":
+		switch lastColor {
+		case "black":
+			self.Grid.RemoveAll()
+			for _, e := range self.uiEls(false) {
+				self.Grid.Add(e)
+			}
+			self.Grid.Refresh()
+		case "white":
+		default:
+			panic("Unsupported lastColor" + lastColor)
+		}
+	case "black":
+	default:
+		panic("Unsupported color: " + color)
+	}
 }
 
 func NewChessBoard() *ChessBoard {

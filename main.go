@@ -60,6 +60,10 @@ func practiceGame() bool {
 
 	gameWindow.Resize(fyne.NewSize(400, 400))
 
+	go func() {
+		fyne.Do(func() { board.MakeMove("white", "black") })
+	}()
+
 	gameWindow.ShowAndRun()
 	return true
 }
