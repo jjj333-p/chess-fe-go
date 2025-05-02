@@ -11,9 +11,9 @@ import (
 )
 
 type ChessPiece struct {
-	black   bool
-	piece   string
-	imageEL *canvas.Image
+	black     bool
+	pieceType string
+	imageEL   *canvas.Image
 }
 
 // NewDefaultPieceForPosition creates a new piece based on position
@@ -32,20 +32,20 @@ func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 
 	// Pawns on ranks 2 and 7 (index 1 and 6)
 	if rank == 1 || rank == 6 {
-		newPiece.piece = "pawn"
+		newPiece.pieceType = "pawn"
 	} else {
 		// Back rank pieces (ranks 1 and 8)
 		switch file {
 		case 0, 7:
-			newPiece.piece = "rook"
+			newPiece.pieceType = "rook"
 		case 1, 6:
-			newPiece.piece = "knight"
+			newPiece.pieceType = "knight"
 		case 2, 5:
-			newPiece.piece = "bishop"
+			newPiece.pieceType = "bishop"
 		case 3:
-			newPiece.piece = "queen"
+			newPiece.pieceType = "queen"
 		case 4:
-			newPiece.piece = "king"
+			newPiece.pieceType = "king"
 		}
 	}
 
@@ -53,7 +53,7 @@ func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 	if newPiece.black {
 		colorName = "black"
 	}
-	newPiece.imageEL = canvas.NewImageFromFile("./assets/pieces/" + colorName + "/" + newPiece.piece + ".png")
+	newPiece.imageEL = canvas.NewImageFromFile("./assets/pieces/" + colorName + "/" + newPiece.pieceType + ".png")
 	newPiece.imageEL.FillMode = canvas.ImageFillContain
 	newPiece.imageEL.SetMinSize(fyne.NewSize(40, 40))
 
@@ -145,28 +145,55 @@ func (self *ChessBoard) uiEls(reverse bool) []fyne.CanvasObject {
 }
 
 /*
-MakeMove lays out the ui for the user of this client to make a move.
+PrepareForMove lays out the ui for the user of this client to make a move.
 Takes `color` (string) which is the color of the user making the move on this client,
 and `assumeFirst` (bool) which allows us to optimize
 */
-func (self *ChessBoard) MakeMove(color string, lastColor string) {
-	switch color {
-	case "white":
-		switch lastColor {
-		case "black":
+func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool) {
+	if colorIsBlack {
+		//enable button for pieces we can move
+		for _, rankSlice := range self.Tiles {
+			for _, tile := range rankSlice {
+				//check that the pieceType is white (we can play it) and defined
+				if tile.piece.black && tile.piece.pieceType != "" {
+					tile.button.Enable()
+					tile.button.SetText("Move " + tile.piece.pieceType)
+					tile.button.Refresh()
+				}
+			}
+		}
+
+		//do we need to rotate it around for white to play
+		if !lastColorIsBlack {
+			self.Grid.RemoveAll()
+			for _, e := range self.uiEls(true) {
+				self.Grid.Add(e)
+			}
+			self.Grid.Refresh()
+		}
+	} else {
+		//enable button for pieces we can move
+		for _, rankSlice := range self.Tiles {
+			for _, tile := range rankSlice {
+				//check that the pieceType is white (we can play it) and defined
+				if !tile.piece.black && tile.piece.pieceType != "" {
+					tile.button.Enable()
+					tile.button.SetText("Move " + tile.piece.pieceType)
+					tile.button.Refresh()
+				}
+			}
+		}
+
+		//do we need to rotate it around for white to play
+		if lastColorIsBlack {
 			self.Grid.RemoveAll()
 			for _, e := range self.uiEls(false) {
 				self.Grid.Add(e)
 			}
 			self.Grid.Refresh()
-		case "white":
-		default:
-			panic("Unsupported lastColor" + lastColor)
 		}
-	case "black":
-	default:
-		panic("Unsupported color: " + color)
 	}
+
 }
 
 func NewChessBoard() *ChessBoard {

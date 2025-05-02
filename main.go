@@ -61,7 +61,7 @@ func practiceGame() bool {
 	gameWindow.Resize(fyne.NewSize(400, 400))
 
 	go func() {
-		fyne.Do(func() { board.MakeMove("white", "black") })
+		fyne.DoAndWait(func() { board.PrepareForMove(false, true) })
 	}()
 
 	gameWindow.ShowAndRun()
@@ -125,11 +125,18 @@ func main() {
 
 	})
 
+	practiceGameInsteadOfLogin := false
+	localGameBtn := widget.NewButton("Local Game", func() {
+		loginWindow.Close()
+		practiceGameInsteadOfLogin = true
+	})
+
 	loginVBox := container.NewVBox(
 		layout.NewSpacer(),
 		usernameEntry,
 		passwordEntry,
 		loginBtn,
+		localGameBtn,
 		loadingSpinner,
 		layout.NewSpacer(),
 	)
@@ -137,6 +144,11 @@ func main() {
 	loginWindow.SetContent(loginVBox)
 	loginWindow.Resize(fyne.NewSize(300, 200))
 	loginWindow.ShowAndRun()
+
+	if practiceGameInsteadOfLogin {
+		practiceGame()
+		return
+	}
 
 	//if the user exits dont bring up the next ui
 	if account.authToken == "" {
