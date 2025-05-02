@@ -120,7 +120,6 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 
 	newTile.UiEL = container.NewStack(newTile.BgColor, top)
 
-	//TODO: define this earlier so its possible to read the messageChan pointer
 	return newTile
 }
 
