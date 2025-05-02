@@ -63,7 +63,7 @@ func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 type ChessTile struct {
 	Piece    *ChessPiece
 	Name     string
-	moveChan chan *Location
+	moveChan *chan *Location
 	Button   *widget.Button
 	UiEL     *fyne.Container
 	BgColor  *canvas.Image
@@ -75,49 +75,53 @@ implicitly creates a chess Piece to place based on starting positions.
 This is not the code that creates the chess tiles though.
 */
 func initChessTileAtPos(rank, file int) *ChessTile {
-	piece := NewDefaultPieceForPosition(rank, file)
+	newTile := &ChessTile{}
+	newTile.Piece = NewDefaultPieceForPosition(rank, file)
 
 	// Convert to chess notation for better debugging
 	fileChar := rune('a' + file)
 	rankNum := rank + 1
 
-	tileName := string(fileChar) + strconv.Itoa(rankNum)
+	newTile.Name = string(fileChar) + strconv.Itoa(rankNum)
 
 	//move Button
-	button := widget.NewButton("", func() {
+	newTile.Button = widget.NewButton("", func() {
 		fmt.Printf("Clicked square %c%d\n", fileChar, rankNum)
-
+		if newTile.moveChan == nil {
+			fmt.Println("Nothing to click")
+		} else {
+			*newTile.moveChan <- &Location{
+				rank,
+				file,
+			}
+		}
 	})
 
 	//start disabled
-	button.Disable()
+	newTile.Button.Disable()
 
-	button.SetText(tileName)
+	newTile.Button.SetText(newTile.Name)
 
 	var top *fyne.Container
-	if piece.imageEL == nil {
-		top = container.NewVBox(layout.NewSpacer(), button)
+	if newTile.Piece.imageEL == nil {
+		top = container.NewVBox(layout.NewSpacer(), newTile.Button)
 	} else {
-		top = container.NewVBox(layout.NewSpacer(), piece.imageEL, button)
+		top = container.NewVBox(layout.NewSpacer(), newTile.Piece.imageEL, newTile.Button)
 	}
 
 	// Determine square color: if Rank + File is even, it's a light square
 	isLightSquare := (rank+file)%2 == 0
-	var bgColor *canvas.Image
 	if isLightSquare {
-		bgColor = canvas.NewImageFromFile("./assets/bg/light.png")
+		newTile.BgColor = canvas.NewImageFromFile("./assets/bg/light.png")
 	} else {
-		bgColor = canvas.NewImageFromFile("./assets/bg/dark.png")
+		newTile.BgColor = canvas.NewImageFromFile("./assets/bg/dark.png")
 	}
-	bgColor.SetMinSize(fyne.NewSize(70, 70))
+	newTile.BgColor.SetMinSize(fyne.NewSize(70, 70))
 
-	return &ChessTile{
-		Piece:   piece,
-		Name:    tileName,
-		Button:  button,
-		UiEL:    container.NewStack(bgColor, top),
-		BgColor: bgColor,
-	}
+	newTile.UiEL = container.NewStack(newTile.BgColor, top)
+
+	//TODO: define this earlier so its possible to read the messageChan pointer
+	return newTile
 }
 
 type ChessBoard struct {
@@ -181,7 +185,7 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 			for _, tile := range rankSlice {
 				//check that the pieceType is white (we can play it) and defined
 				if tile.Piece.black && tile.Piece.pieceType != "" {
-					tile.moveChan = innerMoveChan
+					tile.moveChan = &innerMoveChan
 					tile.Button.Enable()
 					tile.Button.SetText("Move " + tile.Piece.pieceType)
 					tile.Button.Refresh()
@@ -203,7 +207,7 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 			for _, tile := range rankSlice {
 				//check that the pieceType is white (we can play it) and defined
 				if !tile.Piece.black && tile.Piece.pieceType != "" {
-					tile.moveChan = innerMoveChan
+					tile.moveChan = &innerMoveChan
 					tile.Button.Enable()
 					tile.Button.SetText("Move " + tile.Piece.pieceType)
 					tile.Button.Refresh()
@@ -263,7 +267,7 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 			fowardMoveTile.Button.SetText("Move here")
 			fowardMoveTile.Button.Enable()
 			go func() {
-				l := <-fowardMoveTile.moveChan
+				l := <-*fowardMoveTile.moveChan
 				self.DisableAllBtn()
 				moveChan <- l
 			}()
