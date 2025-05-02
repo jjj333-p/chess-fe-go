@@ -16,7 +16,7 @@ type ChessPiece struct {
 	imageEL   *canvas.Image
 }
 
-// NewDefaultPieceForPosition creates a new piece based on position
+// NewDefaultPieceForPosition creates a new Piece based on position
 // rank is 0-7 (representing ranks 1-8)
 // file is 0-7 (representing files a-h)
 func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
@@ -61,15 +61,17 @@ func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 }
 
 type ChessTile struct {
-	piece   *ChessPiece
-	button  *widget.Button
-	uiEL    *fyne.Container
-	bgColor *canvas.Image
+	Piece    *ChessPiece
+	Name     string
+	moveChan chan *Location
+	Button   *widget.Button
+	UiEL     *fyne.Container
+	BgColor  *canvas.Image
 }
 
 /*
 initChessTileAtPos initializes a tile of the board at a position. This
-implicitly creates a chess piece to place based on starting positions.
+implicitly creates a chess Piece to place based on starting positions.
 This is not the code that creates the chess tiles though.
 */
 func initChessTileAtPos(rank, file int) *ChessTile {
@@ -79,15 +81,18 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 	fileChar := rune('a' + file)
 	rankNum := rank + 1
 
-	//move button
+	tileName := string(fileChar) + strconv.Itoa(rankNum)
+
+	//move Button
 	button := widget.NewButton("", func() {
 		fmt.Printf("Clicked square %c%d\n", fileChar, rankNum)
+
 	})
 
 	//start disabled
 	button.Disable()
 
-	button.SetText(string(fileChar) + strconv.Itoa(rankNum))
+	button.SetText(tileName)
 
 	var top *fyne.Container
 	if piece.imageEL == nil {
@@ -107,16 +112,27 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 	bgColor.SetMinSize(fyne.NewSize(70, 70))
 
 	return &ChessTile{
-		piece:   piece,
-		button:  button,
-		uiEL:    container.NewStack(bgColor, top),
-		bgColor: bgColor,
+		Piece:   piece,
+		Name:    tileName,
+		Button:  button,
+		UiEL:    container.NewStack(bgColor, top),
+		BgColor: bgColor,
 	}
 }
 
 type ChessBoard struct {
 	Grid  *fyne.Container
 	Tiles [8][8]*ChessTile
+}
+
+func (self *ChessBoard) DisableAllBtn() {
+	for _, fileSlice := range self.Tiles {
+		for _, tile := range fileSlice {
+			tile.Button.SetText(tile.Name)
+			tile.Button.Disable()
+			tile.Button.Refresh()
+		}
+	}
 }
 
 func (self *ChessBoard) uiEls(reverse bool) []fyne.CanvasObject {
@@ -127,7 +143,7 @@ func (self *ChessBoard) uiEls(reverse bool) []fyne.CanvasObject {
 		for rank := 0; rank < 8; rank++ {
 			for file := 7; file >= 0; file-- {
 				tile := self.Tiles[rank][file]
-				uiTiles[iter] = tile.uiEL
+				uiTiles[iter] = tile.UiEL
 				iter++
 			}
 		}
@@ -135,7 +151,7 @@ func (self *ChessBoard) uiEls(reverse bool) []fyne.CanvasObject {
 		for rank := 7; rank >= 0; rank-- {
 			for file := 0; file < 8; file++ {
 				tile := self.Tiles[rank][file]
-				uiTiles[iter] = tile.uiEL
+				uiTiles[iter] = tile.UiEL
 				iter++
 			}
 		}
@@ -149,16 +165,24 @@ PrepareForMove lays out the ui for the user of this client to make a move.
 Takes `color` (string) which is the color of the user making the move on this client,
 and `assumeFirst` (bool) which allows us to optimize
 */
-func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool) {
+func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool) chan *Location {
+	moveChan := make(chan *Location)
+	innerMoveChan := make(chan *Location)
+	go func(moveChan chan *Location, innerMoveChan chan *Location) {
+		l := <-innerMoveChan
+		fyne.Do(func() { self.DisableAllBtn() })
+		moveChan <- l
+	}(moveChan, innerMoveChan)
 	if colorIsBlack {
-		//enable button for pieces we can move
+		//enable Button for pieces we can move
 		for _, rankSlice := range self.Tiles {
 			for _, tile := range rankSlice {
 				//check that the pieceType is white (we can play it) and defined
-				if tile.piece.black && tile.piece.pieceType != "" {
-					tile.button.Enable()
-					tile.button.SetText("Move " + tile.piece.pieceType)
-					tile.button.Refresh()
+				if tile.Piece.black && tile.Piece.pieceType != "" {
+					tile.moveChan = innerMoveChan
+					tile.Button.Enable()
+					tile.Button.SetText("Move " + tile.Piece.pieceType)
+					tile.Button.Refresh()
 				}
 			}
 		}
@@ -172,14 +196,15 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 			self.Grid.Refresh()
 		}
 	} else {
-		//enable button for pieces we can move
+		//enable Button for pieces we can move
 		for _, rankSlice := range self.Tiles {
 			for _, tile := range rankSlice {
 				//check that the pieceType is white (we can play it) and defined
-				if !tile.piece.black && tile.piece.pieceType != "" {
-					tile.button.Enable()
-					tile.button.SetText("Move " + tile.piece.pieceType)
-					tile.button.Refresh()
+				if !tile.Piece.black && tile.Piece.pieceType != "" {
+					tile.moveChan = innerMoveChan
+					tile.Button.Enable()
+					tile.Button.SetText("Move " + tile.Piece.pieceType)
+					tile.Button.Refresh()
 				}
 			}
 		}
@@ -194,6 +219,59 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 		}
 	}
 
+	return moveChan
+
+}
+
+type Location struct {
+	rank int
+	file int
+}
+
+func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
+	//loop until valid move
+	self.DisableAllBtn()
+	tile := self.Tiles[rank][file]
+
+	moveChan := make(chan *Location)
+	innerMoveChan := make(chan *Location)
+	go func(moveChan chan *Location, innerMoveChan chan *Location) {
+		l := <-innerMoveChan
+		fyne.Do(func() { self.DisableAllBtn() })
+		moveChan <- l
+	}(moveChan, innerMoveChan)
+
+	switch tile.Piece.pieceType {
+	case "pawn":
+		var targetFile int
+		if tile.Piece.black {
+			targetFile = file - 1
+		} else {
+			targetFile = file + 1
+		}
+
+		//out of bounds
+		if targetFile < 0 || targetFile > 7 {
+			panic("Pawn should never reach the end without becoming a queen")
+		}
+
+		fowardMoveTile := self.Tiles[rank][targetFile]
+
+		if fowardMoveTile.Piece.pieceType == "" {
+			fowardMoveTile.Button.SetText("Move here")
+			fowardMoveTile.Button.Enable()
+			go func() {
+				l := <-fowardMoveTile.moveChan
+				self.DisableAllBtn()
+				moveChan <- l
+			}()
+		} else {
+			return nil
+		}
+
+	}
+
+	return moveChan
 }
 
 func NewChessBoard() *ChessBoard {
@@ -206,7 +284,7 @@ func NewChessBoard() *ChessBoard {
 		for file := 0; file < 8; file++ {
 			tile := initChessTileAtPos(rank, file)
 			board.Tiles[rank][file] = tile
-			uiTiles[iter] = tile.uiEL
+			uiTiles[iter] = tile.UiEL
 			iter++
 		}
 	}

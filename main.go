@@ -61,7 +61,14 @@ func practiceGame() bool {
 	gameWindow.Resize(fyne.NewSize(400, 400))
 
 	go func() {
-		fyne.DoAndWait(func() { board.PrepareForMove(false, true) })
+		var startPosChan chan *chessboard.Location
+		for ok := true; ok; ok = startPosChan == nil {
+			fyne.DoAndWait(func() { board.PrepareForMove(false, true) })
+		}
+		var endPosChan chan *chessboard.Location
+		for ok := true; ok; ok = endPosChan == nil {
+			fyne.DoAndWait(func() {})
+		}
 	}()
 
 	gameWindow.ShowAndRun()
