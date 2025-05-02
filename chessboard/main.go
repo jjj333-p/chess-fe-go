@@ -17,8 +17,8 @@ type ChessPiece struct {
 }
 
 // NewDefaultPieceForPosition creates a new Piece based on position
-// rank is 0-7 (representing ranks 1-8)
-// file is 0-7 (representing files a-h)
+// Rank is 0-7 (representing ranks 1-8)
+// File is 0-7 (representing files a-h)
 func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 	newPiece := ChessPiece{}
 
@@ -34,7 +34,7 @@ func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 	if rank == 1 || rank == 6 {
 		newPiece.pieceType = "pawn"
 	} else {
-		// Back rank pieces (ranks 1 and 8)
+		// Back Rank pieces (ranks 1 and 8)
 		switch file {
 		case 0, 7:
 			newPiece.pieceType = "rook"
@@ -101,7 +101,7 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 		top = container.NewVBox(layout.NewSpacer(), piece.imageEL, button)
 	}
 
-	// Determine square color: if rank + file is even, it's a light square
+	// Determine square color: if Rank + File is even, it's a light square
 	isLightSquare := (rank+file)%2 == 0
 	var bgColor *canvas.Image
 	if isLightSquare {
@@ -128,9 +128,11 @@ type ChessBoard struct {
 func (self *ChessBoard) DisableAllBtn() {
 	for _, fileSlice := range self.Tiles {
 		for _, tile := range fileSlice {
-			tile.Button.SetText(tile.Name)
-			tile.Button.Disable()
-			tile.Button.Refresh()
+			fyne.Do(func() {
+				tile.Button.SetText(tile.Name)
+				tile.Button.Disable()
+				tile.Button.Refresh()
+			})
 		}
 	}
 }
@@ -170,7 +172,7 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 	innerMoveChan := make(chan *Location)
 	go func(moveChan chan *Location, innerMoveChan chan *Location) {
 		l := <-innerMoveChan
-		fyne.Do(func() { self.DisableAllBtn() })
+		self.DisableAllBtn()
 		moveChan <- l
 	}(moveChan, innerMoveChan)
 	if colorIsBlack {
@@ -224,8 +226,8 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 }
 
 type Location struct {
-	rank int
-	file int
+	Rank int
+	File int
 }
 
 func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
@@ -237,7 +239,7 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 	innerMoveChan := make(chan *Location)
 	go func(moveChan chan *Location, innerMoveChan chan *Location) {
 		l := <-innerMoveChan
-		fyne.Do(func() { self.DisableAllBtn() })
+		self.DisableAllBtn()
 		moveChan <- l
 	}(moveChan, innerMoveChan)
 
@@ -279,7 +281,7 @@ func NewChessBoard() *ChessBoard {
 	uiTiles := make([]fyne.CanvasObject, 64)
 
 	iter := 0
-	// Start from rank 7 (index) downward to match chess convention
+	// Start from Rank 7 (index) downward to match chess convention
 	for rank := 7; rank >= 0; rank-- {
 		for file := 0; file < 8; file++ {
 			tile := initChessTileAtPos(rank, file)

@@ -63,12 +63,15 @@ func practiceGame() bool {
 	go func() {
 		var startPosChan chan *chessboard.Location
 		for ok := true; ok; ok = startPosChan == nil {
-			fyne.DoAndWait(func() { board.PrepareForMove(false, true) })
+			fyne.DoAndWait(func() { startPosChan = board.PrepareForMove(false, true) })
 		}
+		startPos := <-startPosChan
 		var endPosChan chan *chessboard.Location
 		for ok := true; ok; ok = endPosChan == nil {
-			fyne.DoAndWait(func() {})
+			fyne.DoAndWait(func() { endPosChan = board.MoveChooser(startPos.Rank, startPos.File) })
 		}
+		endPos := <-endPosChan
+		fmt.Println(endPos.Rank, endPos.File)
 	}()
 
 	gameWindow.ShowAndRun()
