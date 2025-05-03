@@ -16,6 +16,11 @@ type ChessPiece struct {
 	imageEL   *canvas.Image
 }
 
+type Location struct {
+	Rank int
+	File int
+}
+
 // NewDefaultPieceForPosition creates a new Piece based on position
 // Rank is 0-7 (representing ranks 1-8)
 // File is 0-7 (representing files a-h)
@@ -82,13 +87,17 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 	fileChar := rune('a' + file)
 	rankNum := rank + 1
 
+	//Name for easy setting later
 	newTile.Name = string(fileChar) + strconv.Itoa(rankNum)
 
 	//move Button
 	newTile.Button = widget.NewButton("", func() {
 		fmt.Printf("Clicked square %c%d\n", fileChar, rankNum)
+
+		//moveChan of the tile object is basically used as a radio to broadcast a button press over
 		if newTile.moveChan == nil {
-			fmt.Println("Nothing to click")
+			//fmt.Println("Nothing to click")
+			panic("There is no action behind this button. Why????")
 		} else {
 			*newTile.moveChan <- &Location{
 				rank,
@@ -99,7 +108,6 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 
 	//start disabled
 	newTile.Button.Disable()
-
 	newTile.Button.SetText(newTile.Name)
 
 	var top *fyne.Container
@@ -128,6 +136,7 @@ type ChessBoard struct {
 	Tiles [8][8]*ChessTile
 }
 
+// DisableAllBtn disables all buttons on the board. Simple as.
 func (self *ChessBoard) DisableAllBtn() {
 	for _, fileSlice := range self.Tiles {
 		for _, tile := range fileSlice {
@@ -136,11 +145,18 @@ func (self *ChessBoard) DisableAllBtn() {
 				tile.Button.Disable()
 				tile.Button.Refresh()
 			})
+			tile.moveChan = nil
 		}
 	}
 }
 
-func (self *ChessBoard) uiEls(reverse bool) []fyne.CanvasObject {
+/*
+UiEls returns a flat slice of all ui elements.
+Intended to be used for putting into the grid layout.
+`reverse` indicates basically if the board should be flipped around
+such as if the black side is playing.
+*/
+func (self *ChessBoard) UiEls(reverse bool) []fyne.CanvasObject {
 	uiTiles := make([]fyne.CanvasObject, 64)
 	iter := 0
 
@@ -173,11 +189,15 @@ and `assumeFirst` (bool) which allows us to optimize
 func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool) chan *Location {
 	moveChan := make(chan *Location)
 	innerMoveChan := make(chan *Location)
+
+	//concurrent thread to await a selection being returned, disable buttons, and pass it on
 	go func(moveChan chan *Location, innerMoveChan chan *Location) {
 		l := <-innerMoveChan
 		self.DisableAllBtn()
 		moveChan <- l
 	}(moveChan, innerMoveChan)
+
+	//logic to enable all pieces that are of the playing color
 	if colorIsBlack {
 		//enable Button for pieces we can move
 		for _, rankSlice := range self.Tiles {
@@ -195,7 +215,7 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 		//do we need to rotate it around for white to play
 		if !lastColorIsBlack {
 			self.Grid.RemoveAll()
-			for _, e := range self.uiEls(true) {
+			for _, e := range self.UiEls(true) {
 				self.Grid.Add(e)
 			}
 			self.Grid.Refresh()
@@ -217,7 +237,7 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 		//do we need to rotate it around for white to play
 		if lastColorIsBlack {
 			self.Grid.RemoveAll()
-			for _, e := range self.uiEls(false) {
+			for _, e := range self.UiEls(false) {
 				self.Grid.Add(e)
 			}
 			self.Grid.Refresh()
@@ -228,50 +248,53 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 
 }
 
-type Location struct {
-	Rank int
-	File int
-}
-
+/*
+MoveChooser is the successor to PrepareForMove() which lays out a selection of possible moves.
+A nil chan indicates that no adequate move was available and the selection process should
+be retried.
+*/
 func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
-	//loop until valid move
-	self.DisableAllBtn()
+
 	tile := self.Tiles[rank][file]
 
 	moveChan := make(chan *Location)
 	innerMoveChan := make(chan *Location)
+
+	//thread to wait a selection to be made, then disable all buttons and return it
 	go func(moveChan chan *Location, innerMoveChan chan *Location) {
 		l := <-innerMoveChan
+		fmt.Println(l, "move location from within move chooser")
 		self.DisableAllBtn()
 		moveChan <- l
 	}(moveChan, innerMoveChan)
 
+	fmt.Println(tile.Piece.pieceType)
+
 	switch tile.Piece.pieceType {
 	case "pawn":
-		var targetFile int
+		var targetRank int
 		if tile.Piece.black {
-			targetFile = file - 1
+			targetRank = rank - 1
 		} else {
-			targetFile = file + 1
+			targetRank = rank + 1
 		}
 
+		fmt.Println(targetRank)
+
 		//out of bounds
-		if targetFile < 0 || targetFile > 7 {
+		if targetRank < 0 || targetRank > 7 {
 			panic("Pawn should never reach the end without becoming a queen")
 		}
 
-		fowardMoveTile := self.Tiles[rank][targetFile]
+		fowardMoveTile := self.Tiles[targetRank][file]
 
 		if fowardMoveTile.Piece.pieceType == "" {
+			fmt.Println(fowardMoveTile.Name)
+			fowardMoveTile.moveChan = &innerMoveChan
 			fowardMoveTile.Button.SetText("Move here")
 			fowardMoveTile.Button.Enable()
-			go func() {
-				l := <-*fowardMoveTile.moveChan
-				self.DisableAllBtn()
-				moveChan <- l
-			}()
 		} else {
-			return nil
+			panic(fowardMoveTile.Piece.pieceType)
 		}
 
 	}
