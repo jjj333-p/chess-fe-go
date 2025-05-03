@@ -40,7 +40,7 @@ func login(creds credentials) loginResponse {
 	if err != nil {
 		return loginResponse{ErrStr: err.Error()}
 	}
-	defer resp.Body.Close()
+	defer fmt.Println(resp.Body.Close())
 
 	var authn loginResponse
 	err = json.NewDecoder(resp.Body).Decode(&authn)
