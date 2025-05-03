@@ -70,8 +70,48 @@ type ChessTile struct {
 	Name     string
 	moveChan *chan *Location
 	Button   *widget.Button
+	uiTop    *fyne.Container
 	UiEL     *fyne.Container
 	BgColor  *canvas.Image
+}
+
+/*
+AssembleUI tells the chess tile to (re)form the ui.
+This can be used to create the initial tile UI
+or if one already exists, it will update the piece element
+*/
+func (self *ChessTile) AssembleUI(refresh bool) {
+	fmt.Println("Assembling", self.Name, "with image el", self.Piece.imageEL, " - refresh is ", refresh)
+
+	//if ui doesnt exist create it, else remove all items and insert again
+	if self.uiTop == nil {
+		//show piece if it is there
+		if self.Piece.imageEL == nil {
+			self.uiTop = container.NewVBox(layout.NewSpacer(), self.Button)
+		} else {
+			self.uiTop = container.NewVBox(layout.NewSpacer(), self.Piece.imageEL, self.Button)
+		}
+	} else {
+		self.uiTop.RemoveAll()
+		if self.Piece.imageEL == nil {
+			self.uiTop.Add(layout.NewSpacer())
+			self.uiTop.Add(self.Button)
+		} else {
+			self.uiTop.Add(layout.NewSpacer())
+			self.uiTop.Add(self.Piece.imageEL)
+			self.uiTop.Add(self.Button)
+		}
+	}
+
+	/*
+		if theres no ui element, it needs to be created and used, and that will refresh it
+		else we should refresh it.
+	*/
+	if refresh {
+		self.UiEL.Refresh()
+	} else {
+		self.UiEL = container.NewStack(self.BgColor, self.uiTop)
+	}
 }
 
 /*
@@ -110,13 +150,6 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 	newTile.Button.Disable()
 	newTile.Button.SetText(newTile.Name)
 
-	var top *fyne.Container
-	if newTile.Piece.imageEL == nil {
-		top = container.NewVBox(layout.NewSpacer(), newTile.Button)
-	} else {
-		top = container.NewVBox(layout.NewSpacer(), newTile.Piece.imageEL, newTile.Button)
-	}
-
 	// Determine square color: if Rank + File is even, it's a light square
 	isLightSquare := (rank+file)%2 == 0
 	if isLightSquare {
@@ -126,7 +159,7 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 	}
 	newTile.BgColor.SetMinSize(fyne.NewSize(70, 70))
 
-	newTile.UiEL = container.NewStack(newTile.BgColor, top)
+	newTile.AssembleUI(false)
 
 	return newTile
 }
@@ -141,9 +174,11 @@ func (self *ChessBoard) DisableAllBtn() {
 	for _, fileSlice := range self.Tiles {
 		for _, tile := range fileSlice {
 			fyne.Do(func() {
+				fmt.Println("Disabling tile", tile.Name)
 				tile.Button.SetText(tile.Name)
 				tile.Button.Disable()
 				tile.Button.Refresh()
+				fmt.Println("unlocked tile", tile.Name)
 			})
 			tile.moveChan = nil
 		}
@@ -266,6 +301,7 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 		fmt.Println(l, "move location from within move chooser")
 		self.DisableAllBtn()
 		moveChan <- l
+		fmt.Println("done moving chooser")
 	}(moveChan, innerMoveChan)
 
 	fmt.Println(tile.Piece.pieceType)
@@ -300,6 +336,19 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 	}
 
 	return moveChan
+}
+
+func (self *ChessBoard) MovePiece(from *Location, to *Location) {
+	fmt.Println("moving from", from, "to", to)
+
+	// move to new position
+	self.Tiles[to.Rank][to.File].Piece = self.Tiles[from.Rank][from.File].Piece
+	self.Tiles[from.Rank][from.File].Piece = &ChessPiece{}
+
+	//update ui
+	self.Tiles[from.Rank][from.File].AssembleUI(true)
+	self.Tiles[to.Rank][to.File].AssembleUI(true)
+
 }
 
 func NewChessBoard() *ChessBoard {

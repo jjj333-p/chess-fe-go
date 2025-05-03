@@ -77,6 +77,10 @@ func practiceGame() bool {
 		endPos := <-endPosChan
 		fmt.Println(endPos.Rank, endPos.File)
 
+		fyne.DoAndWait(func() { board.MovePiece(startPos, endPos) })
+
+		fyne.DoAndWait(board.Grid.Refresh)
+
 	}()
 
 	gameWindow.ShowAndRun()
