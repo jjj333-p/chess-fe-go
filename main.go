@@ -61,26 +61,26 @@ func practiceGame() bool {
 	gameWindow.Resize(fyne.NewSize(400, 400))
 
 	go func() {
+		for {
+			var startPosChan chan *chessboard.Location
+			var endPosChan chan *chessboard.Location
+			var startPos *chessboard.Location
+			for ok := true; ok; ok = endPosChan == nil {
 
-		var startPosChan chan *chessboard.Location
+				fyne.DoAndWait(func() { startPosChan = board.PrepareForMove(false, true) })
 
-		for ok := true; ok; ok = startPosChan == nil {
-			fyne.DoAndWait(func() { startPosChan = board.PrepareForMove(false, true) })
+				startPos = <-startPosChan
+				fmt.Println(startPos, "startPos")
+				fyne.DoAndWait(func() { endPosChan = board.MoveChooser(startPos.Rank, startPos.File) })
+				fmt.Println(endPosChan)
+			}
+			endPos := <-endPosChan
+			fmt.Println(endPos.Rank, endPos.File)
+
+			fyne.DoAndWait(func() { board.MovePiece(startPos, endPos) })
+
+			fyne.DoAndWait(board.Grid.Refresh)
 		}
-		startPos := <-startPosChan
-		fmt.Println(startPos, "startPos")
-		var endPosChan chan *chessboard.Location
-		for ok := true; ok; ok = endPosChan == nil {
-			fyne.DoAndWait(func() { endPosChan = board.MoveChooser(startPos.Rank, startPos.File) })
-			fmt.Println(endPosChan)
-		}
-		endPos := <-endPosChan
-		fmt.Println(endPos.Rank, endPos.File)
-
-		fyne.DoAndWait(func() { board.MovePiece(startPos, endPos) })
-
-		fyne.DoAndWait(board.Grid.Refresh)
-
 	}()
 
 	gameWindow.ShowAndRun()

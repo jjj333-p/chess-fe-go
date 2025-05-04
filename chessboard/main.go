@@ -11,9 +11,9 @@ import (
 )
 
 type ChessPiece struct {
-	black     bool
-	pieceType string
-	imageEL   *canvas.Image
+	Black     bool
+	PieceType string
+	ImageEL   *canvas.Image
 }
 
 type Location struct {
@@ -33,34 +33,34 @@ func NewDefaultPieceForPosition(rank, file int) *ChessPiece {
 	}
 
 	// Black pieces on ranks 7-8 (index 6-7), White pieces on ranks 1-2 (index 0-1)
-	newPiece.black = rank > 4
+	newPiece.Black = rank > 4
 
 	// Pawns on ranks 2 and 7 (index 1 and 6)
 	if rank == 1 || rank == 6 {
-		newPiece.pieceType = "pawn"
+		newPiece.PieceType = "pawn"
 	} else {
 		// Back Rank pieces (ranks 1 and 8)
 		switch file {
 		case 0, 7:
-			newPiece.pieceType = "rook"
+			newPiece.PieceType = "rook"
 		case 1, 6:
-			newPiece.pieceType = "knight"
+			newPiece.PieceType = "knight"
 		case 2, 5:
-			newPiece.pieceType = "bishop"
+			newPiece.PieceType = "bishop"
 		case 3:
-			newPiece.pieceType = "queen"
+			newPiece.PieceType = "queen"
 		case 4:
-			newPiece.pieceType = "king"
+			newPiece.PieceType = "king"
 		}
 	}
 
 	colorName := "white"
-	if newPiece.black {
+	if newPiece.Black {
 		colorName = "black"
 	}
-	newPiece.imageEL = canvas.NewImageFromFile("./assets/pieces/" + colorName + "/" + newPiece.pieceType + ".png")
-	newPiece.imageEL.FillMode = canvas.ImageFillContain
-	newPiece.imageEL.SetMinSize(fyne.NewSize(40, 40))
+	newPiece.ImageEL = canvas.NewImageFromFile("./assets/pieces/" + colorName + "/" + newPiece.PieceType + ".png")
+	newPiece.ImageEL.FillMode = canvas.ImageFillContain
+	newPiece.ImageEL.SetMinSize(fyne.NewSize(40, 40))
 
 	return &newPiece
 }
@@ -81,24 +81,24 @@ This can be used to create the initial tile UI
 or if one already exists, it will update the piece element
 */
 func (self *ChessTile) AssembleUI(refresh bool) {
-	fmt.Println("Assembling", self.Name, "with image el", self.Piece.imageEL, " - refresh is ", refresh)
+	fmt.Println("Assembling", self.Name, "with image el", self.Piece.ImageEL, " - refresh is ", refresh)
 
 	//if ui doesnt exist create it, else remove all items and insert again
 	if self.uiTop == nil {
 		//show piece if it is there
-		if self.Piece.imageEL == nil {
+		if self.Piece.ImageEL == nil {
 			self.uiTop = container.NewVBox(layout.NewSpacer(), self.Button)
 		} else {
-			self.uiTop = container.NewVBox(layout.NewSpacer(), self.Piece.imageEL, self.Button)
+			self.uiTop = container.NewVBox(layout.NewSpacer(), self.Piece.ImageEL, self.Button)
 		}
 	} else {
 		self.uiTop.RemoveAll()
-		if self.Piece.imageEL == nil {
+		if self.Piece.ImageEL == nil {
 			self.uiTop.Add(layout.NewSpacer())
 			self.uiTop.Add(self.Button)
 		} else {
 			self.uiTop.Add(layout.NewSpacer())
-			self.uiTop.Add(self.Piece.imageEL)
+			self.uiTop.Add(self.Piece.ImageEL)
 			self.uiTop.Add(self.Button)
 		}
 	}
@@ -174,11 +174,9 @@ func (self *ChessBoard) DisableAllBtn() {
 	for _, fileSlice := range self.Tiles {
 		for _, tile := range fileSlice {
 			fyne.Do(func() {
-				fmt.Println("Disabling tile", tile.Name)
 				tile.Button.SetText(tile.Name)
 				tile.Button.Disable()
 				tile.Button.Refresh()
-				fmt.Println("unlocked tile", tile.Name)
 			})
 			tile.moveChan = nil
 		}
@@ -189,7 +187,7 @@ func (self *ChessBoard) DisableAllBtn() {
 UiEls returns a flat slice of all ui elements.
 Intended to be used for putting into the grid layout.
 `reverse` indicates basically if the board should be flipped around
-such as if the black side is playing.
+such as if the Black side is playing.
 */
 func (self *ChessBoard) UiEls(reverse bool) []fyne.CanvasObject {
 	uiTiles := make([]fyne.CanvasObject, 64)
@@ -237,11 +235,11 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 		//enable Button for pieces we can move
 		for _, rankSlice := range self.Tiles {
 			for _, tile := range rankSlice {
-				//check that the pieceType is white (we can play it) and defined
-				if tile.Piece.black && tile.Piece.pieceType != "" {
+				//check that the PieceType is white (we can play it) and defined
+				if tile.Piece.Black && tile.Piece.PieceType != "" {
 					tile.moveChan = &innerMoveChan
 					tile.Button.Enable()
-					tile.Button.SetText("Move " + tile.Piece.pieceType)
+					tile.Button.SetText("Move " + tile.Piece.PieceType)
 					tile.Button.Refresh()
 				}
 			}
@@ -259,11 +257,11 @@ func (self *ChessBoard) PrepareForMove(colorIsBlack bool, lastColorIsBlack bool)
 		//enable Button for pieces we can move
 		for _, rankSlice := range self.Tiles {
 			for _, tile := range rankSlice {
-				//check that the pieceType is white (we can play it) and defined
-				if !tile.Piece.black && tile.Piece.pieceType != "" {
+				//check that the PieceType is white (we can play it) and defined
+				if !tile.Piece.Black && tile.Piece.PieceType != "" {
 					tile.moveChan = &innerMoveChan
 					tile.Button.Enable()
-					tile.Button.SetText("Move " + tile.Piece.pieceType)
+					tile.Button.SetText("Move " + tile.Piece.PieceType)
 					tile.Button.Refresh()
 				}
 			}
@@ -304,12 +302,13 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 		fmt.Println("done moving chooser")
 	}(moveChan, innerMoveChan)
 
-	fmt.Println(tile.Piece.pieceType)
+	fmt.Println(tile.Piece.PieceType)
 
-	switch tile.Piece.pieceType {
+	switch tile.Piece.PieceType {
 	case "pawn":
+		moveableSpots := 0
 		var targetRank int
-		if tile.Piece.black {
+		if tile.Piece.Black {
 			targetRank = rank - 1
 		} else {
 			targetRank = rank + 1
@@ -324,18 +323,52 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 
 		fowardMoveTile := self.Tiles[targetRank][file]
 
-		if fowardMoveTile.Piece.pieceType == "" {
+		if fowardMoveTile.Piece.PieceType == "" {
 			fmt.Println(fowardMoveTile.Name)
+			moveableSpots += 1
 			fowardMoveTile.moveChan = &innerMoveChan
 			fowardMoveTile.Button.SetText("Move here")
 			fowardMoveTile.Button.Enable()
 		} else {
-			panic(fowardMoveTile.Piece.pieceType)
+			fmt.Println("Cannot move pawn foward as a", fowardMoveTile.Piece.PieceType, "is in the way.")
+		}
+
+		if file < 7 {
+			rightTakeTile := self.Tiles[targetRank][file+1]
+			if rightTakeTile.Piece.PieceType == "" {
+				fmt.Println("Cannot take right with pawn as there is no piece to take.")
+			} else {
+				fmt.Println(rightTakeTile.Name)
+				moveableSpots += 1
+				rightTakeTile.moveChan = &innerMoveChan
+				rightTakeTile.Button.SetText("Move here")
+				rightTakeTile.Button.Enable()
+			}
+		} else {
+			fmt.Println("Cannot take right as that is off the board")
+		}
+
+		if file > 0 {
+			leftTakeTile := self.Tiles[targetRank][file-1]
+			if leftTakeTile.Piece.PieceType == "" {
+				fmt.Println("Cannot take left with pawn as there is no piece to take.")
+			} else {
+				fmt.Println(leftTakeTile.Name)
+				moveableSpots += 1
+				leftTakeTile.moveChan = &innerMoveChan
+				leftTakeTile.Button.SetText("Move here")
+				leftTakeTile.Button.Enable()
+			}
+		}
+
+		fmt.Println("The pawn can move", moveableSpots, "spaces.")
+		if moveableSpots > 0 {
+			return moveChan
 		}
 
 	}
 
-	return moveChan
+	return nil
 }
 
 func (self *ChessBoard) MovePiece(from *Location, to *Location) {
@@ -344,6 +377,24 @@ func (self *ChessBoard) MovePiece(from *Location, to *Location) {
 	// move to new position
 	self.Tiles[to.Rank][to.File].Piece = self.Tiles[from.Rank][from.File].Piece
 	self.Tiles[from.Rank][from.File].Piece = &ChessPiece{}
+
+	//pawn becomes queen at back
+	if self.Tiles[to.Rank][to.File].Piece.PieceType == "pawn" && to.Rank == 7 {
+		var colorName string
+		if self.Tiles[to.Rank][to.File].Piece.Black {
+			colorName = "black"
+		} else {
+			colorName = "white"
+		}
+		imageEL := canvas.NewImageFromFile("./assets/pieces/" + colorName + "/queen.png")
+		imageEL.FillMode = canvas.ImageFillContain
+		imageEL.SetMinSize(fyne.NewSize(40, 40))
+		self.Tiles[to.Rank][to.File].Piece = &ChessPiece{
+			Black:     self.Tiles[to.Rank][to.File].Piece.Black,
+			PieceType: "queen",
+			ImageEL:   imageEL,
+		}
+	}
 
 	//update ui
 	self.Tiles[from.Rank][from.File].AssembleUI(true)
