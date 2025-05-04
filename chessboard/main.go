@@ -174,9 +174,11 @@ func (self *ChessBoard) DisableAllBtn() {
 	for _, fileSlice := range self.Tiles {
 		for _, tile := range fileSlice {
 			fyne.Do(func() {
-				tile.Button.SetText(tile.Name)
-				tile.Button.Disable()
-				tile.Button.Refresh()
+				if !tile.Button.Disabled() {
+					tile.Button.SetText(tile.Name)
+					tile.Button.Disable()
+					tile.Button.Refresh()
+				}
 			})
 			tile.moveChan = nil
 		}
@@ -303,10 +305,224 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 	}(moveChan, innerMoveChan)
 
 	fmt.Println(tile.Piece.PieceType)
+	moveableSpots := 0
+
+	enableMoveButton := func(desiredTile *ChessTile) {
+		moveableSpots += 1
+		desiredTile.moveChan = &innerMoveChan
+		desiredTile.Button.SetText("Move here")
+		desiredTile.Button.Enable()
+	}
+
+	searchList := func(locationsToLook *[8]Location) {
+		for _, l := range locationsToLook {
+			if l.Rank < 0 || l.Rank > 7 {
+				fmt.Println(l, "rank is out of range")
+				continue
+			}
+			if l.File < 0 || l.File > 7 {
+				fmt.Println(l, "file is out of range")
+				continue
+			}
+
+			targetTile := self.Tiles[l.Rank][l.File]
+			if targetTile.Piece.PieceType == "" ||
+				targetTile.Piece.Black != self.Tiles[rank][file].Piece.Black {
+				enableMoveButton(targetTile)
+			} else {
+				fmt.Println("Knight cannot take its own color at", l)
+			}
+		}
+	}
+
+	rookLogic := func() {
+		//vertical up
+		for targetRank := rank + 1; targetRank < 8; targetRank++ {
+			targetTile := self.Tiles[targetRank][file]
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+
+		//vertical down
+		for targetRank := rank - 1; targetRank > -1; targetRank-- {
+			targetTile := self.Tiles[targetRank][file]
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+
+		//horizontal right
+		for targetFile := file + 1; targetFile < 8; targetFile++ {
+			targetTile := self.Tiles[rank][targetFile]
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+
+		//horizontal left
+		for targetFile := file - 1; targetFile > -1; targetFile-- {
+			targetTile := self.Tiles[rank][targetFile]
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+	}
+	bishopLogic := func() {
+		//up and to the right
+		for increment := 1; increment < 7; increment++ {
+			fmt.Println(increment)
+			targetRank := rank + increment
+			targetFile := file + increment
+			if targetRank < 0 || targetRank > 7 {
+				fmt.Println(targetRank, "rank is out of range, stopping search.")
+				break
+			}
+			if targetFile < 0 || targetFile > 7 {
+				fmt.Println(targetFile, "file is out of range, stopping search.")
+				break
+			}
+			targetTile := self.Tiles[targetRank][targetFile]
+
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+
+		// up and to the left
+		for increment := 1; increment < 7; increment++ {
+			targetRank := rank + increment
+			targetFile := file - increment
+			if targetRank < 0 || targetRank > 7 {
+				fmt.Println(targetRank, "rank is out of range, stopping search.")
+				break
+			}
+
+			if targetFile < 0 || targetFile > 7 {
+				fmt.Println(targetFile, "file is out of range, stopping search.")
+				break
+			}
+			targetTile := self.Tiles[targetRank][targetFile]
+
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+
+		//down and to the right
+		for increment := 1; increment < 7; increment++ {
+			targetRank := rank - increment
+			targetFile := file + increment
+			if targetRank < 0 || targetRank > 7 {
+				fmt.Println(targetRank, "rank is out of range, stopping search.")
+				break
+			}
+			if targetFile < 0 || targetFile > 7 {
+				fmt.Println(targetFile, "file is out of range, stopping search.")
+				break
+			}
+
+			targetTile := self.Tiles[targetRank][targetFile]
+
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+
+		//down and to the left
+		for increment := 1; increment < 7; increment++ {
+			targetRank := rank - increment
+			targetFile := file - increment
+			if targetRank < 0 || targetRank > 7 {
+				fmt.Println(targetRank, "rank is out of range, stopping search.")
+				break
+			}
+			if targetFile < 0 || targetFile > 7 {
+				fmt.Println(targetFile, "file is out of range, stopping search.")
+				break
+			}
+			targetTile := self.Tiles[targetRank][targetFile]
+
+			if targetTile.Piece.PieceType == "" {
+				fmt.Println(targetTile.Name, "is empty, opening and continuing search.")
+				enableMoveButton(targetTile)
+			} else {
+				if targetTile.Piece.Black == self.Tiles[rank][file].Piece.Black {
+					fmt.Println(targetTile.Name, "Colors match, not opening and stopping search.")
+				} else {
+					fmt.Println(targetTile.Name, "Colors don't match, opening and stopping search.")
+					enableMoveButton(targetTile)
+				}
+				break
+			}
+		}
+	}
 
 	switch tile.Piece.PieceType {
 	case "pawn":
-		moveableSpots := 0
 		var targetRank int
 		if tile.Piece.Black {
 			targetRank = rank - 1
@@ -325,10 +541,7 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 
 		if fowardMoveTile.Piece.PieceType == "" {
 			fmt.Println(fowardMoveTile.Name)
-			moveableSpots += 1
-			fowardMoveTile.moveChan = &innerMoveChan
-			fowardMoveTile.Button.SetText("Move here")
-			fowardMoveTile.Button.Enable()
+			enableMoveButton(fowardMoveTile)
 		} else {
 			fmt.Println("Cannot move pawn foward as a", fowardMoveTile.Piece.PieceType, "is in the way.")
 		}
@@ -339,10 +552,7 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 				fmt.Println("Cannot take right with pawn as there is no piece to take.")
 			} else {
 				fmt.Println(rightTakeTile.Name)
-				moveableSpots += 1
-				rightTakeTile.moveChan = &innerMoveChan
-				rightTakeTile.Button.SetText("Move here")
-				rightTakeTile.Button.Enable()
+				enableMoveButton(rightTakeTile)
 			}
 		} else {
 			fmt.Println("Cannot take right as that is off the board")
@@ -354,21 +564,54 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 				fmt.Println("Cannot take left with pawn as there is no piece to take.")
 			} else {
 				fmt.Println(leftTakeTile.Name)
-				moveableSpots += 1
-				leftTakeTile.moveChan = &innerMoveChan
-				leftTakeTile.Button.SetText("Move here")
-				leftTakeTile.Button.Enable()
+				enableMoveButton(leftTakeTile)
 			}
 		}
 
 		fmt.Println("The pawn can move", moveableSpots, "spaces.")
-		if moveableSpots > 0 {
-			return moveChan
+	case "rook":
+		rookLogic()
+	case "knight":
+		// easier to statically define these and iterate than figure out a working algorithm
+		locationsToLook := &[8]Location{
+			{rank + 2, file + 1},
+			{rank + 1, file + 2},
+			{rank - 2, file + 1},
+			{rank - 1, file + 2},
+			{rank - 2, file - 1},
+			{rank - 1, file - 2},
+			{rank + 2, file - 1},
+			{rank + 1, file - 2},
 		}
 
+		searchList(locationsToLook)
+
+	case "bishop":
+		bishopLogic()
+	case "queen":
+		rookLogic()
+		bishopLogic()
+	case "king":
+		// easier to statically define these and iterate than figure out a working algorithm
+		locationsToLook := &[8]Location{
+			{rank + 1, file + 1},
+			{rank + 1, file},
+			{rank + 1, file - 1},
+			{rank, file + 1},
+			{rank, file - 1},
+			{rank - 1, file - 1},
+			{rank - 1, file},
+			{rank - 1, file + 1},
+		}
+
+		searchList(locationsToLook)
 	}
 
-	return nil
+	if moveableSpots > 0 {
+		return moveChan
+	} else {
+		return nil
+	}
 }
 
 func (self *ChessBoard) MovePiece(from *Location, to *Location) {
