@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/jjj333-p/chess-fe-go/chessboard"
 	"io"
@@ -154,6 +155,156 @@ func makeMove(gameID int, pieceID string, from *chessboard.Location, to *chessbo
 	return nil
 }
 
+type DbUser struct {
+	UID         int    `json:"uid"`
+	GamesLost   int    `json:"games_lost"`
+	GamesWon    int    `json:"games_won"`
+	GamesDraw   int    `json:"games_draw"`
+	WinStreak   int    `json:"win_streak"`
+	LoseStreak  int    `json:"lose_streak"`
+	CurrentElo  int    `json:"current_elo"`
+	TotalGames  int    `json:"total_games"`
+	Username    string `json:"username"`
+	PeakElo     int    `json:"peak_elo"`
+	PeakRank    int    `json:"peak_rank"`
+	CurrentRank int    `json:"current_rank"`
+}
+
+func GetUser(token string, serverUrl string, uid int) (*DbUser, error) {
+	url := fmt.Sprintf("%s/_user/%d", serverUrl, uid)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
+
+	req.Header.Set("token", token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned error status %d", resp.StatusCode)
+	}
+
+	var user DbUser
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("error parsing response: %v", err)
+	}
+
+	return &user, nil
+}
+
+func GetAllUsers(token string, serverUrl string) ([]DbUser, error) {
+	url := fmt.Sprintf("%s/_user/list", serverUrl)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
+
+	req.Header.Set("token", token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error making request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned error status %d", resp.StatusCode)
+	}
+
+	var users []DbUser
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return nil, fmt.Errorf("error parsing response: %v", err)
+	}
+
+	return users, nil
+}
+
+func CreateUserSelector(token string, serverUrl string) (*widget.Select, []DbUser, error) {
+	// Fetch all users first
+	users, err := GetAllUsers(token, serverUrl)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch users: %v", err)
+	}
+
+	// Create a map to store username to user mapping for easy lookup
+	userMap := make(map[string]*DbUser)
+	// Create slice of usernames for the dropdown
+	usernames := make([]string, len(users))
+
+	// Sort users by username for better UX
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].Username < users[j].Username
+	})
+
+	// Populate the slices and map
+	for i, user := range users {
+		usernames[i] = user.Username
+		userMap[user.Username] = &users[i]
+	}
+
+	// Create the dropdown
+	selector := widget.NewSelect(usernames, nil)
+	selector.PlaceHolder = "Select a user..."
+
+	return selector, users, nil
+}
+
+func CreateNewGame(token string, serverUrl string, opponentUID int) (*DbGame, error) {
+	url := fmt.Sprintf("%s/_game/new/%d", serverUrl, opponentUID)
+
+	// Create the request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
+
+	// Set the authentication token
+	req.Header.Set("token", token)
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Parse the response
+	var game DbGame
+	if err := json.NewDecoder(resp.Body).Decode(&game); err != nil {
+		return nil, fmt.Errorf("error parsing response: %v", err)
+	}
+
+	return &game, nil
+}
+
 func Games(account AccountData, serverUrl string) bool {
 	// Create a new request
 	req, err := http.NewRequest("GET", serverUrl+"/_game/current", nil)
@@ -190,7 +341,7 @@ func Games(account AccountData, serverUrl string) bool {
 
 	// Create Fyne application and window
 	a := app.New()
-	w := a.NewWindow("Current Games")
+	w := a.NewWindow("Choose Game")
 
 	var desiredGameIDToPlay int
 
@@ -204,6 +355,50 @@ func Games(account AccountData, serverUrl string) bool {
 		widget.NewLabel("Status"),
 		widget.NewLabel("Tournament"),
 		widget.NewLabel("Action"),
+	)
+
+	userSelector, userlist, err := CreateUserSelector(account.AuthToken, serverUrl)
+
+	var selectedGame *DbGame
+
+	// Add new game row
+	gridELS = append(gridELS,
+		widget.NewLabel("New:"),
+		widget.NewLabel(account.Cred.Username), // Tournament placeholder
+		widget.NewLabel(""),
+		userSelector,
+		widget.NewLabel(""),
+		widget.NewButtonWithIcon("Select Opponent", theme.AccountIcon(), func() {
+			selectedUsername := userSelector.Selected
+			fmt.Println("Selected User:", selectedUsername)
+			if selectedUsername == "" {
+				dialog.ShowInformation("No user selected.", "You must select a user.", w)
+				return
+			}
+
+			var selectedUserObj *DbUser
+			for _, user := range userlist {
+				if user.Username == selectedUsername {
+					selectedUserObj = &user
+					break
+				}
+			}
+
+			if selectedUserObj == nil {
+				dialog.ShowInformation("Error", "Selected user not found.", w)
+				return
+			}
+
+			fmt.Printf("Selected user ID: %d\n", selectedUserObj.UID)
+
+			selectedGame, err = CreateNewGame(account.AuthToken, serverUrl, selectedUserObj.UID)
+			if err != nil {
+				dialog.ShowError(err, w)
+			}
+			desiredGameIDToPlay = selectedGame.GameID
+
+			w.Close()
+		}),
 	)
 
 	// Create entries for each game
@@ -237,13 +432,14 @@ func Games(account AccountData, serverUrl string) bool {
 
 	fmt.Printf("game to play: %d\n", desiredGameIDToPlay)
 
-	// Find the selected game
-	var selectedGame *DbGame
-	for _, game := range games {
-		if game.GameID == desiredGameIDToPlay {
-			gameCopy := game
-			selectedGame = &gameCopy
-			break
+	if selectedGame == nil {
+		// Find the selected game
+		for _, game := range games {
+			if game.GameID == desiredGameIDToPlay {
+				gameCopy := game
+				selectedGame = &gameCopy
+				break
+			}
 		}
 	}
 
