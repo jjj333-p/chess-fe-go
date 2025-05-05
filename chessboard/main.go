@@ -21,6 +21,11 @@ type Location struct {
 	File int
 }
 
+type Move struct {
+	From *Location
+	To   *Location
+}
+
 // NewDefaultPieceForPosition creates a new Piece based on position
 // Rank is 0-7 (representing ranks 1-8)
 // File is 0-7 (representing files a-h)
@@ -555,6 +560,8 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 			rightTakeTile := self.Tiles[targetRank][file+1]
 			if rightTakeTile.Piece.PieceType == "" {
 				fmt.Println("Cannot take right with pawn as there is no piece to take.")
+			} else if rightTakeTile.Piece.Black == tile.Piece.Black {
+				fmt.Println("Cannot take right with pawn as we cannot take our own piece.")
 			} else {
 				fmt.Println(rightTakeTile.Name)
 				enableMoveButton(rightTakeTile)
@@ -567,6 +574,8 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 			leftTakeTile := self.Tiles[targetRank][file-1]
 			if leftTakeTile.Piece.PieceType == "" {
 				fmt.Println("Cannot take left with pawn as there is no piece to take.")
+			} else if leftTakeTile.Piece.Black == tile.Piece.Black {
+				fmt.Println("Cannot take right with pawn as we cannot take our own piece.")
 			} else {
 				fmt.Println(leftTakeTile.Name)
 				enableMoveButton(leftTakeTile)
