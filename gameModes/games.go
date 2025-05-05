@@ -371,6 +371,9 @@ func Games(account AccountData, serverUrl string) bool {
 
 	fmt.Println("turn", selectedGame.Turn)
 
+	gameloopRunning := atomic.Bool{}
+	gameloopRunning.Store(true)
+
 	go func() {
 		movesWeMade := make([]chessboard.Move, 0)
 		movesTheyMade := make([]chessboard.Move, 0)
@@ -381,6 +384,11 @@ func Games(account AccountData, serverUrl string) bool {
 		lastToFile := atomic.Int32{}
 
 		for {
+
+			if !gameloopRunning.Load() {
+				return
+			}
+
 			var move chessboard.Move
 			if !ourTurn {
 
@@ -519,6 +527,8 @@ func Games(account AccountData, serverUrl string) bool {
 	//board.PrepareForMove()
 
 	gameWindow.ShowAndRun()
+
+	gameloopRunning.Store(false)
 
 	return true
 }
