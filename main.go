@@ -15,125 +15,193 @@ import (
 	"net/http"
 )
 
-const serverUrl = "http://localhost:9001"
-
-type credentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
+const serverUrl = "http://66.91.172.196:5000"
 
 type loginResponse struct {
 	Token  string `json:"token"`
 	ErrStr string `json:"error"`
 }
 
-type accountData struct {
-	cred      credentials
-	authToken string
-}
-
-func login(creds credentials) loginResponse {
-	jsonData, _ := json.Marshal(creds)
-
-	resp, err := http.Post(serverUrl+"/_login/authenticate",
-		"application/json", bytes.NewBuffer(jsonData))
+func login(creds gameModes.Credentials) loginResponse {
+	// First get the token (existing code)
+	resp, err := http.Get(serverUrl + "/request_token")
 	if err != nil {
-		return loginResponse{ErrStr: err.Error()}
+		fmt.Println("Error requesting token:", err)
+		return loginResponse{ErrStr: "Error requesting token"}
 	}
-	defer fmt.Println(resp.Body.Close())
+	defer resp.Body.Close()
 
-	var authn loginResponse
-	err = json.NewDecoder(resp.Body).Decode(&authn)
-	if err != nil {
-		return loginResponse{ErrStr: err.Error()}
+	var tokenResp struct {
+		Token string `json:"token"`
 	}
-	return authn
+
+	err = json.NewDecoder(resp.Body).Decode(&tokenResp)
+	if err != nil {
+		fmt.Println("Error decoding response:", err)
+		return loginResponse{ErrStr: "Error requesting token"}
+	}
+
+	fmt.Println("Token:", tokenResp.Token)
+
+	jsonData, err := json.Marshal(creds)
+	if err != nil {
+		fmt.Println("Error marshaling credentials:", err)
+		return loginResponse{ErrStr: "Error preparing login request"}
+	}
+
+	// Create authentication request
+	req, err := http.NewRequest("POST", serverUrl+"/_login/authenticate", bytes.NewBuffer(jsonData))
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return loginResponse{ErrStr: "Error creating login request"}
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("token", tokenResp.Token)
+
+	// Send the authentication request
+	client := &http.Client{}
+	authResp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error during authentication:", err)
+		return loginResponse{ErrStr: "Error during authentication"}
+	}
+	defer authResp.Body.Close()
+
+	// Check response status
+	if authResp.StatusCode == 401 {
+		return loginResponse{ErrStr: "Invalid credentials"}
+	}
+	if authResp.StatusCode != 200 {
+		return loginResponse{ErrStr: fmt.Sprintf("Server error: %d", authResp.StatusCode)}
+	}
+
+	// Since authentication was successful, return the initial token
+	return loginResponse{Token: tokenResp.Token}
 }
 
 func main() {
-	loginApp := app.New()
-	loginWindow := loginApp.NewWindow("Login")
 
-	usernameEntry := widget.NewEntry()
-	usernameEntry.SetPlaceHolder("Username")
-	passwordEntry := widget.NewPasswordEntry()
-	passwordEntry.SetPlaceHolder("Password")
+	initialChoice := 0
+	initialApp := app.New()
+	initialWindow := initialApp.NewWindow("Authentication")
 
-	loadingSpinner := widget.NewProgressBarInfinite()
-	loadingSpinner.Hide()
-
-	var account accountData
-
-	var loginBtn *widget.Button
-	loginBtn = widget.NewButton("Login", func() {
-		if usernameEntry.Text == "" {
-			dialog.ShowError(errors.New("please enter a username"), loginWindow)
-			return
-		}
-		if passwordEntry.Text == "" {
-			dialog.ShowError(errors.New("please enter a password"), loginWindow)
-			return
-		}
-
-		loadingSpinner.Show()
-		loginBtn.Disable()
-
-		creds := credentials{
-			Username: usernameEntry.Text,
-			Password: passwordEntry.Text,
-		}
-		account.cred = creds
-		authn := login(creds)
-
-		if authn.ErrStr != "" {
-			loadingSpinner.Hide()
-			loginBtn.Enable()
-			dialog.ShowError(errors.New(authn.ErrStr), loginWindow)
-			return
-		} else if authn.Token == "" {
-			loadingSpinner.Hide()
-			loginBtn.Enable()
-			dialog.ShowError(errors.New("empty token response from server"), loginWindow)
-			return
-		}
-
-		account.authToken = authn.Token
-		loadingSpinner.Hide()
-		loginBtn.Enable()
-		dialog.ShowInformation("Success", "Login successful!", loginWindow)
-
-		fmt.Println("Login successful!", account.authToken)
-		loginWindow.Close()
-
+	loginchBtn := widget.NewButton("Login", func() {
+		initialChoice = 1
+		initialWindow.Close()
 	})
 
-	practiceGameInsteadOfLogin := false
+	registerBtn := widget.NewButton("Register", func() {
+		initialChoice = 2
+		initialWindow.Close()
+	})
+
 	localGameBtn := widget.NewButton("Local Game", func() {
-		loginWindow.Close()
-		practiceGameInsteadOfLogin = true
+		initialChoice = 3
+		initialWindow.Close()
 	})
 
-	loginVBox := container.NewVBox(
+	initialContent := container.NewCenter(container.NewVBox(
 		layout.NewSpacer(),
-		usernameEntry,
-		passwordEntry,
-		loginBtn,
+		loginchBtn,
+		registerBtn,
 		localGameBtn,
-		loadingSpinner,
 		layout.NewSpacer(),
-	)
+	))
 
-	loginWindow.SetContent(loginVBox)
-	loginWindow.Resize(fyne.NewSize(300, 200))
-	loginWindow.ShowAndRun()
+	initialWindow.SetContent(initialContent)
+	initialWindow.Resize(fyne.NewSize(200, 100))
+	initialWindow.ShowAndRun()
 
-	if practiceGameInsteadOfLogin {
+	var account gameModes.AccountData
+
+	// Handle the choice
+	switch initialChoice {
+	case 1:
+		// Handle login
+		println("Login selected")
+
+		loginApp := app.New()
+		loginWindow := loginApp.NewWindow("Login")
+
+		usernameEntry := widget.NewEntry()
+		usernameEntry.SetPlaceHolder("Username")
+		passwordEntry := widget.NewPasswordEntry()
+		passwordEntry.SetPlaceHolder("Password")
+
+		loadingSpinner := widget.NewProgressBarInfinite()
+		loadingSpinner.Hide()
+
+		var loginBtn *widget.Button
+		loginBtn = widget.NewButton("Login", func() {
+			if usernameEntry.Text == "" {
+				dialog.ShowError(errors.New("please enter a username"), loginWindow)
+				return
+			}
+			if passwordEntry.Text == "" {
+				dialog.ShowError(errors.New("please enter a password"), loginWindow)
+				return
+			}
+
+			loadingSpinner.Show()
+			loginBtn.Disable()
+
+			creds := gameModes.Credentials{
+				Username: usernameEntry.Text,
+				Password: passwordEntry.Text,
+			}
+			account.Cred = creds
+			authn := login(creds)
+
+			if authn.ErrStr != "" {
+				loadingSpinner.Hide()
+				loginBtn.Enable()
+				dialog.ShowError(errors.New(authn.ErrStr), loginWindow)
+				return
+			} else if authn.Token == "" {
+				loadingSpinner.Hide()
+				loginBtn.Enable()
+				dialog.ShowError(errors.New("empty token response from server"), loginWindow)
+				return
+			}
+
+			account.AuthToken = authn.Token
+			loadingSpinner.Hide()
+			loginBtn.Enable()
+			dialog.ShowInformation("Success", "Login successful!", loginWindow)
+
+			fmt.Println("Login successful!", account.AuthToken)
+			loginWindow.Close()
+
+		})
+
+		loginVBox := container.NewVBox(
+			layout.NewSpacer(),
+			usernameEntry,
+			passwordEntry,
+			loginBtn,
+			loadingSpinner,
+			layout.NewSpacer(),
+		)
+
+		loginWindow.SetContent(loginVBox)
+		loginWindow.Resize(fyne.NewSize(300, 200))
+		loginWindow.ShowAndRun()
+
+		//if the user exits dont bring up the next ui
+		if account.AuthToken == "" {
+			return
+		}
+	case 2:
+		// Handle registration
+		println("Register selected")
+	case 3:
 		gameModes.PracticeGame()
 		return
-	}
-
-	//if the user exits dont bring up the next ui
-	if account.authToken == "" {
+	case 0:
+		// Window was closed
+		println("Window closed")
 		return
 	}
 
@@ -142,12 +210,12 @@ func main() {
 		menuApp := app.New()
 		menuWindow := menuApp.NewWindow("Menu")
 
-		practiceBtn := widget.NewButton("Practice Game", func() {
+		practiceBtn := widget.NewButton("Local Game", func() {
 			menuChoice = 1
 			menuWindow.Close()
 		})
 
-		onlineGameBtn := widget.NewButton("New Online Game", func() {
+		onlineGameBtn := widget.NewButton("Online Game", func() {
 			menuChoice = 2
 			menuWindow.Close()
 		})
@@ -175,6 +243,7 @@ func main() {
 			returnToMenu = gameModes.PracticeGame()
 		case 2:
 			fmt.Println("New Online Game")
+			returnToMenu = gameModes.Games(account, serverUrl)
 		case 3:
 			fmt.Println("View Past Games")
 		default:
