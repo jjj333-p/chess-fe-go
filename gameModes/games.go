@@ -492,7 +492,7 @@ func Games(account AccountData, serverUrl string) bool {
 
 		//undo change to board
 		fyne.Do(func() {
-			board.MovePiece(move.To, move.From)
+			board.MovePiece(move.To, move.From, true)
 		})
 
 		updateViewingText()
@@ -518,7 +518,7 @@ func Games(account AccountData, serverUrl string) bool {
 
 		//redo change to board
 		fyne.Do(func() {
-			board.MovePiece(move.From, move.To)
+			board.MovePiece(move.From, move.To, false)
 		})
 
 		updateViewingText()
@@ -557,7 +557,7 @@ func Games(account AccountData, serverUrl string) bool {
 	for _, dbmove := range dbmoves {
 		mv := dbMoveToMove(&dbmove)
 		moves = append(moves, mv)
-		board.MovePiece(mv.From, mv.To)
+		board.MovePiece(mv.From, mv.To, false)
 	}
 	viewedMove.Store(int32(len(moves)))
 	updateViewingText()
@@ -712,7 +712,7 @@ func Games(account AccountData, serverUrl string) bool {
 			if viewingHistorical.Load() {
 				fmt.Println("Not updating grid as we are viewing historical move")
 			} else {
-				fyne.Do(func() { board.MovePiece(move.From, move.To) })
+				fyne.Do(func() { board.MovePiece(move.From, move.To, false) })
 				viewedMove.Store(int32(len(moves)))
 			}
 			updateViewingText()

@@ -50,7 +50,7 @@ func PracticeGame() bool {
 
 		//undo change to board
 		fyne.Do(func() {
-			board.MovePiece(move.To, move.From)
+			board.MovePiece(move.To, move.From, true)
 		})
 
 		updateViewingText()
@@ -76,7 +76,7 @@ func PracticeGame() bool {
 
 		//redo change to board
 		fyne.Do(func() {
-			board.MovePiece(move.From, move.To)
+			board.MovePiece(move.From, move.To, false)
 		})
 
 		updateViewingText()
@@ -150,7 +150,7 @@ func PracticeGame() bool {
 			if viewingHistorical.Load() {
 				fmt.Println("Not updating grid as we are viewing historical move")
 			} else {
-				fyne.Do(func() { board.MovePiece(startPos, endPos) })
+				fyne.Do(func() { board.MovePiece(startPos, endPos, false) })
 				viewedMove.Store(int32(len(moves)))
 			}
 			updateViewingText()

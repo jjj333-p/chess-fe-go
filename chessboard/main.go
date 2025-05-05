@@ -170,8 +170,9 @@ func initChessTileAtPos(rank, file int) *ChessTile {
 }
 
 type ChessBoard struct {
-	Grid  *fyne.Container
-	Tiles [8][8]*ChessTile
+	Grid    *fyne.Container
+	Tiles   [8][8]*ChessTile
+	discard []*ChessPiece
 }
 
 // DisableAllBtn disables all buttons on the board. Simple as.
@@ -628,14 +629,24 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 	}
 }
 
-func (self *ChessBoard) MovePiece(from *Location, to *Location) {
+func (self *ChessBoard) MovePiece(from *Location, to *Location, reverse bool) {
 
-	if self.Tiles[from.Rank][from.File].Piece.PieceType == "" {
+	fmt.Println("moving from", from, "to", to)
+
+	var last *ChessPiece
+	if len(self.discard) > 0 {
+		last = self.discard[len(self.discard)-1]
+	} else {
+		last = &ChessPiece{}
+	}
+
+	if self.Tiles[from.Rank][from.File].Piece.PieceType == "" &&
+		(last.PieceType == "" || !reverse) {
 		fmt.Println("not moving empty element (this should not happen)")
 		return
 	}
 
-	fmt.Println("moving from", from, "to", to)
+	hold := self.Tiles[to.Rank][to.File].Piece
 
 	// move to new position
 	self.Tiles[to.Rank][to.File].Piece = self.Tiles[from.Rank][from.File].Piece
@@ -662,6 +673,14 @@ func (self *ChessBoard) MovePiece(from *Location, to *Location) {
 	//update ui
 	self.Tiles[from.Rank][from.File].AssembleUI(true)
 	self.Tiles[to.Rank][to.File].AssembleUI(true)
+
+	if reverse {
+		self.Tiles[from.Rank][from.File].Piece = last
+		self.Tiles[from.Rank][from.File].AssembleUI(true)
+		self.discard = self.discard[:len(self.discard)-1]
+	} else {
+		self.discard = append(self.discard, hold)
+	}
 
 }
 
