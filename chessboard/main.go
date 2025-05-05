@@ -304,6 +304,11 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 		fmt.Println("done moving chooser")
 	}(moveChan, innerMoveChan)
 
+	//cancel option
+	tile.moveChan = &innerMoveChan
+	tile.Button.SetText("Cancel")
+	tile.Button.Enable()
+
 	fmt.Println(tile.Piece.PieceType)
 	moveableSpots := 0
 
