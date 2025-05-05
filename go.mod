@@ -22,7 +22,8 @@ require (
 	github.com/hack-pad/go-indexeddb v0.3.2 // indirect
 	github.com/hack-pad/safejs v0.1.0 // indirect
 	github.com/jeandeaual/go-locale v0.0.0-20241217141322-fcc2cadd6f08 // indirect
-	github.com/jjj333-p/chess-fe-go/chessboard v0.0.0-20250421093518-db952df2e5b9 // indirect
+	github.com/jjj333-p/chess-fe-go/chessboard v0.0.0-20250505012347-32ce1f3764a0 // indirect
+	github.com/jjj333-p/chess-fe-go/gameModes v0.0.0-00010101000000-000000000000 // indirect
 	github.com/jsummers/gobmp v0.0.0-20230614200233-a9de23ed2e25 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
@@ -42,3 +43,5 @@ require (
 
 // In your go.mod file, add:
 replace github.com/jjj333-p/chess-fe-go/chessboard => ./chessboard
+
+replace github.com/jjj333-p/chess-fe-go/gameModes => ./gameModes
