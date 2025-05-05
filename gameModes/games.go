@@ -372,11 +372,20 @@ func Games(account AccountData, serverUrl string) bool {
 	fmt.Println("turn", selectedGame.Turn)
 
 	go func() {
-		recievingOurMove := !ourTurn
+		movesWeMade := make([]chessboard.Move, 0)
+		movesTheyMade := make([]chessboard.Move, 0)
+
+		lastFromRank := atomic.Int32{}
+		lastToRank := atomic.Int32{}
+		lastFromFile := atomic.Int32{}
+		lastToFile := atomic.Int32{}
+
 		for {
 			var move chessboard.Move
 			if !ourTurn {
+
 				time.Sleep(1 * time.Second)
+
 				ldbm, err := fetchLastMove(selectedGame.GameID, account.AuthToken, serverUrl)
 				if err != nil {
 					fyne.Do(func() {
@@ -386,9 +395,14 @@ func Games(account AccountData, serverUrl string) bool {
 				}
 				fmt.Println("last move", ldbm)
 
+				if ldbm == nil {
+					continue
+				}
+
 				//check if we already have last move
 				old := false
 				for _, dbmove := range dbmoves {
+					fmt.Println(dbmove.MIndex, ldbm.MIndex)
 					if dbmove.MIndex == ldbm.MIndex {
 						old = true
 					}
@@ -398,22 +412,26 @@ func Games(account AccountData, serverUrl string) bool {
 					continue
 				}
 
-				if ldbm == nil {
-					continue
-				}
-
 				dbmoves = append(dbmoves, *ldbm)
 
 				move = dbMoveToMove(ldbm)
 
-				if !recievingOurMove {
-					ourTurn = true
-				}
-				recievingOurMove = !recievingOurMove
-				fmt.Println("our move", recievingOurMove)
+				movesTheyMade = append(movesTheyMade, move)
+
 				fmt.Println(*ldbm)
+				ourTurn = true
 
 			} else {
+				if len(movesWeMade) > 0 &&
+					movesWeMade[len(movesWeMade)-1].From.File == moves[len(moves)-1].From.File &&
+					movesWeMade[len(movesWeMade)-1].From.Rank == moves[len(moves)-1].From.Rank &&
+					movesWeMade[len(movesWeMade)-1].From.Rank == moves[len(moves)-1].From.Rank &&
+					movesWeMade[len(movesWeMade)-1].From.File == moves[len(moves)-1].From.File {
+					ourTurn = false
+					continue
+
+				}
+
 				var startPosChan chan *chessboard.Location
 				var endPosChan chan *chessboard.Location
 				var startPos *chessboard.Location
@@ -443,7 +461,42 @@ func Games(account AccountData, serverUrl string) bool {
 				}
 
 				move = chessboard.Move{From: startPos, To: endPos}
+				movesWeMade = append(movesWeMade, move)
 				ourTurn = false
+
+				fmt.Println(lastFromFile.Load() == int32(move.From.File))
+				fmt.Println(lastToFile.Load() == int32(move.To.File))
+				fmt.Println(lastFromRank.Load() == int32(move.From.Rank))
+				fmt.Println(lastToRank.Load() == int32(move.To.Rank))
+
+				if lastFromFile.Load() == int32(move.From.File) &&
+					lastToFile.Load() == int32(move.To.File) &&
+					lastFromRank.Load() == int32(move.From.Rank) &&
+					lastToRank.Load() == int32(move.To.Rank) {
+					continue
+				}
+				lastFromFile.Store(int32(move.From.File))
+				lastFromRank.Store(int32(move.From.Rank))
+				lastToFile.Store(int32(move.To.File))
+				lastToRank.Store(int32(move.To.Rank))
+
+				go func() {
+
+					fmt.Println("in goroutine")
+					err = makeMove(
+						selectedGame.GameID,
+						board.Tiles[move.To.Rank][move.To.File].Piece.PieceType,
+						move.From,
+						move.To,
+						account.AuthToken,
+						serverUrl,
+					)
+					if err != nil {
+						fyne.Do(func() {
+							dialog.ShowInformation("Error making move", err.Error(), gameWindow)
+						})
+					}
+				}()
 
 			}
 
@@ -458,30 +511,8 @@ func Games(account AccountData, serverUrl string) bool {
 			}
 			updateViewingText()
 
-			skip := (len(moves)%2 == 0) == isBlack
-
 			fmt.Println("our turn", ourTurn)
-			go func() {
-				//this will be flipped true after fetching other turn,
-				//true indicates last turn was not ours
-				if skip {
-					return
-				}
-				fmt.Println("in goroutine")
-				err = makeMove(
-					selectedGame.GameID,
-					board.Tiles[move.To.Rank][move.To.File].Piece.PieceType,
-					move.From,
-					move.To,
-					account.AuthToken,
-					serverUrl,
-				)
-				if err != nil {
-					fyne.Do(func() {
-						dialog.ShowInformation("Error making move", err.Error(), gameWindow)
-					})
-				}
-			}()
+
 		}
 	}()
 

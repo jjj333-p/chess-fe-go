@@ -629,6 +629,12 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 }
 
 func (self *ChessBoard) MovePiece(from *Location, to *Location) {
+
+	if self.Tiles[from.Rank][from.File].Piece.PieceType == "" {
+		fmt.Println("not moving empty element (this should not happen)")
+		return
+	}
+
 	fmt.Println("moving from", from, "to", to)
 
 	// move to new position
