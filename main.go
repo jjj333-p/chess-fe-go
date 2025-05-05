@@ -196,6 +196,7 @@ func main() {
 	case 2:
 		// Handle registration
 		println("Register selected")
+		return
 	case 3:
 		gameModes.PracticeGame()
 		return
