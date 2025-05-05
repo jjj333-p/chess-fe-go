@@ -1,10 +1,10 @@
 package gameModes
 
-import "net/http"
 import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 )
 
 type Credentials struct {
@@ -15,6 +15,33 @@ type Credentials struct {
 type AccountData struct {
 	Cred      Credentials
 	AuthToken string
+}
+
+type DbMove struct {
+	MIndex    int    `json:"mindex"`
+	GameID    int    `json:"game_id"`
+	MFrom     int    `json:"mfrom"`
+	MTo       int    `json:"mto"`
+	PieceName string `json:"piece_name"`
+}
+
+type DbGame struct {
+	GameID         int      `json:"game_id"`
+	Date           string   `json:"date"`
+	Status         string   `json:"status"`
+	WhiteID        int      `json:"white_id"`
+	WhiteName      string   `json:"white_name"`
+	BlackID        int      `json:"black_id"`
+	BlackName      string   `json:"black_name"`
+	WhiteElo       int      `json:"white_elo"`
+	BlackElo       int      `json:"black_elo"`
+	WhiteEloChange int      `json:"white_elo_change"`
+	BlackEloChange int      `json:"black_elo_change"`
+	TID            int      `json:"tid"`
+	Bracket        int      `json:"bracket"`
+	Turn           string   `json:"turn"`
+	TName          string   `json:"tname"`
+	Moves          []DbMove `json:"moves"`
 }
 
 func Games(account AccountData, serverUrl string) bool {
@@ -45,16 +72,17 @@ func Games(account AccountData, serverUrl string) bool {
 	}
 
 	// Parse the JSON response
-	var games []string
+	var games []DbGame
 	if err := json.Unmarshal(body, &games); err != nil {
 		fmt.Printf("Error parsing response: %v\n", err)
 		return false
 	}
 
-	// Print the game IDs
+	// Print the games information
 	fmt.Println("Current games:")
-	for _, gameID := range games {
-		fmt.Println("Game ID:", gameID)
+	for _, game := range games {
+		fmt.Printf("Game ID: %d, White: %s vs Black: %s, Status: %s\n",
+			game.GameID, game.WhiteName, game.BlackName, game.Status)
 	}
 
 	return resp.StatusCode == http.StatusOK
