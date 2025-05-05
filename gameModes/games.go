@@ -1,6 +1,7 @@
 package gameModes
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"fyne.io/fyne/v2"
@@ -15,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"sync/atomic"
+	"time"
 )
 
 type Credentials struct {
@@ -52,6 +54,104 @@ type DbGame struct {
 	Turn           string   `json:"turn"`
 	TName          string   `json:"tname"`
 	Moves          []DbMove `json:"moves"`
+}
+
+func fetchLastMove(gameID int, token string, serverUrl string) (*DbMove, error) {
+	url := fmt.Sprintf("%s/_game/%d/last_move", serverUrl, gameID)
+
+	fmt.Println(url)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("token", token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch last move, status code: %d", resp.StatusCode)
+	}
+
+	var move DbMove
+	err = json.NewDecoder(resp.Body).Decode(&move)
+	if err != nil {
+		return nil, err
+	}
+
+	if move.GameID == 0 {
+		return nil, nil
+	}
+
+	return &move, nil
+}
+
+func dbMoveToMove(dbmove *DbMove) chessboard.Move {
+	from := &chessboard.Location{
+		Rank: dbmove.MFrom % 8,
+		File: dbmove.MFrom / 8,
+	}
+	to := &chessboard.Location{
+		Rank: dbmove.MTo % 8,
+		File: dbmove.MTo / 8,
+	}
+	return chessboard.Move{
+		From: from,
+		To:   to,
+	}
+}
+
+func makeMove(gameID int, pieceID string, from *chessboard.Location, to *chessboard.Location, token string, serverUrl string) error {
+	// Convert the locations to (x,y) tuples as expected by the server
+	fromTuple := []int{from.File, from.Rank}
+	toTuple := []int{to.File, to.Rank}
+	fmt.Println("moving request from", fromTuple, "to", toTuple)
+
+	// Create the request body
+	moveData := map[string]interface{}{
+		"piece_id": pieceID,
+		"mfrom":    fromTuple,
+		"mto":      toTuple,
+	}
+
+	// Convert the data to JSON
+	jsonData, err := json.Marshal(moveData)
+	if err != nil {
+		return fmt.Errorf("error marshaling move data: %v", err)
+	}
+
+	// Create the request
+	url := fmt.Sprintf("%s/_game/%d/move", serverUrl, gameID)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("token", token)
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("server returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return nil
 }
 
 func Games(account AccountData, serverUrl string) bool {
@@ -257,30 +357,133 @@ func Games(account AccountData, serverUrl string) bool {
 	gameWindow.Resize(fyne.NewSize(400, 400))
 
 	for _, dbmove := range dbmoves {
-		//append(moves, chessboard.Move{
-		//	From: chessboard.Location{Rank: }
-		//})
-		from := &chessboard.Location{
-			Rank: dbmove.MFrom % 8,
-			File: dbmove.MFrom / 8,
-		}
-		to := &chessboard.Location{
-			Rank: dbmove.MTo % 8,
-			File: dbmove.MTo / 8,
-		}
-		moves = append(moves, chessboard.Move{
-			From: from,
-			To:   to,
-		})
-		board.MovePiece(from, to)
+		mv := dbMoveToMove(&dbmove)
+		moves = append(moves, mv)
+		board.MovePiece(mv.From, mv.To)
 	}
 	viewedMove.Store(int32(len(moves)))
 	updateViewingText()
+	fmt.Println(moves)
 	isBlack := selectedGame.BlackName == account.Cred.Username
+	board.PrepareForMove(isBlack, false)
+	board.DisableAllBtn()
+	ourTurn := isBlack == (selectedGame.Turn == "B")
 
-	//go func() {
-	//
-	//}()
+	fmt.Println("turn", selectedGame.Turn)
+
+	go func() {
+		recievingOurMove := !ourTurn
+		for {
+			var move chessboard.Move
+			if !ourTurn {
+				time.Sleep(1 * time.Second)
+				ldbm, err := fetchLastMove(selectedGame.GameID, account.AuthToken, serverUrl)
+				if err != nil {
+					fyne.Do(func() {
+						dialog.ShowInformation("Error checking last move", err.Error(), gameWindow)
+					})
+					continue
+				}
+				fmt.Println("last move", ldbm)
+
+				//check if we already have last move
+				old := false
+				for _, dbmove := range dbmoves {
+					if dbmove.MIndex == ldbm.MIndex {
+						old = true
+					}
+				}
+
+				if old {
+					continue
+				}
+
+				if ldbm == nil {
+					continue
+				}
+
+				dbmoves = append(dbmoves, *ldbm)
+
+				move = dbMoveToMove(ldbm)
+
+				if !recievingOurMove {
+					ourTurn = true
+				}
+				recievingOurMove = !recievingOurMove
+				fmt.Println("our move", recievingOurMove)
+				fmt.Println(*ldbm)
+
+			} else {
+				var startPosChan chan *chessboard.Location
+				var endPosChan chan *chessboard.Location
+				var startPos *chessboard.Location
+				var endPos *chessboard.Location
+				//cancel op is selecting the origina tile
+				for startPos == nil ||
+					endPos == nil ||
+					(startPos.Rank == endPos.Rank &&
+						startPos.File == endPos.File) {
+
+					//fall back for when no options are there, nil chanel will be returned
+					for ok := true; ok; ok = endPosChan == nil {
+
+						fyne.DoAndWait(func() { startPosChan = board.PrepareForMove(isBlack, false) })
+
+						startPos = <-startPosChan
+						fmt.Println(startPos, "startPos")
+						fyne.DoAndWait(func() { endPosChan = board.MoveChooser(startPos.Rank, startPos.File) })
+						fmt.Println(endPosChan)
+					}
+					endPos = <-endPosChan
+
+					if startPos.Rank == endPos.Rank &&
+						startPos.File == endPos.File {
+						fmt.Println("Move is no-op, allowing user to chose piece to move again")
+					}
+				}
+
+				move = chessboard.Move{From: startPos, To: endPos}
+				ourTurn = false
+
+			}
+
+			moves = append(moves, move)
+			fmt.Println(len(moves), "moves", moves)
+
+			if viewingHistorical.Load() {
+				fmt.Println("Not updating grid as we are viewing historical move")
+			} else {
+				fyne.Do(func() { board.MovePiece(move.From, move.To) })
+				viewedMove.Store(int32(len(moves)))
+			}
+			updateViewingText()
+
+			skip := (len(moves)%2 == 0) == isBlack
+
+			fmt.Println("our turn", ourTurn)
+			go func() {
+				//this will be flipped true after fetching other turn,
+				//true indicates last turn was not ours
+				if skip {
+					return
+				}
+				fmt.Println("in goroutine")
+				err = makeMove(
+					selectedGame.GameID,
+					board.Tiles[move.To.Rank][move.To.File].Piece.PieceType,
+					move.From,
+					move.To,
+					account.AuthToken,
+					serverUrl,
+				)
+				if err != nil {
+					fyne.Do(func() {
+						dialog.ShowInformation("Error making move", err.Error(), gameWindow)
+					})
+				}
+			}()
+		}
+	}()
 
 	//board.PrepareForMove()
 
