@@ -443,7 +443,9 @@ func Games(account AccountData, serverUrl string) bool {
 		}
 	}
 
-	if selectedGame == nil {
+	if selectedGame == nil && desiredGameIDToPlay == 0 {
+		return true
+	} else if selectedGame == nil {
 		panic("No game found with ID:" + strconv.Itoa(desiredGameIDToPlay))
 	}
 
