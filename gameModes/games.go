@@ -467,6 +467,13 @@ func Games(account AccountData, serverUrl string) bool {
 	board := chessboard.NewChessBoard()
 
 	playingText := widget.NewLabel("White's game...")
+	updatePlayingText := func(isBlackGame bool) {
+		if isBlackGame {
+			playingText.SetText("Black's game...")
+		} else {
+			playingText.SetText("White's game...")
+		}
+	}
 	viewingText := widget.NewLabel("Viewing move 0 of 0")
 	updateViewingText := func() {
 		fyne.Do(func() {
@@ -565,7 +572,10 @@ func Games(account AccountData, serverUrl string) bool {
 	isBlack := selectedGame.BlackName == account.Cred.Username
 	board.PrepareForMove(isBlack, false)
 	board.DisableAllBtn()
-	ourTurn := isBlack == (selectedGame.Turn == "B")
+	isBlackTurn := selectedGame.Turn == "B"
+	ourTurn := isBlack == isBlackTurn
+
+	updatePlayingText(isBlackTurn)
 
 	fmt.Println("turn", selectedGame.Turn)
 
@@ -707,6 +717,11 @@ func Games(account AccountData, serverUrl string) bool {
 				}()
 
 			}
+
+			isBlackTurn = isBlack == ourTurn
+			fyne.Do(func() {
+				updatePlayingText(isBlackTurn)
+			})
 
 			updateMoveStore := true
 			if viewingHistorical.Load() {

@@ -310,12 +310,18 @@ func main() {
 			menuWindow.Close()
 		})
 
+		leaderboardBtn := widget.NewButton("Leaderboard", func() {
+			menuChoice = 6
+			menuWindow.Close()
+		})
+
 		menuContent := container.NewCenter(container.NewVBox(
 			practiceBtn,
 			onlineGameBtn,
 			pastGamesBtn,
 			profileBtn,
 			tournamentsBtn,
+			leaderboardBtn,
 		))
 
 		menuWindow.SetContent(menuContent)
@@ -341,6 +347,10 @@ func main() {
 			fmt.Println("Tournaments")
 			returnToMenu = true
 			gameModes.Tournaments(account, serverUrl)
+		case 6:
+			fmt.Println("Leaderboard")
+			returnToMenu = true
+			gameModes.Leaderboards(account, serverUrl)
 		default:
 			panic("Unknow menu choice")
 		}
