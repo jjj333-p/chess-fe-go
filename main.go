@@ -81,6 +81,65 @@ func login(creds gameModes.Credentials) loginResponse {
 	return loginResponse{Token: tokenResp.Token}
 }
 
+func register(creds gameModes.Credentials) loginResponse {
+	// First get the token (existing code)
+	resp, err := http.Get(serverUrl + "/request_token")
+	if err != nil {
+		fmt.Println("Error requesting token:", err)
+		return loginResponse{ErrStr: "Error requesting token"}
+	}
+	defer resp.Body.Close()
+
+	var tokenResp struct {
+		Token string `json:"token"`
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&tokenResp)
+	if err != nil {
+		fmt.Println("Error decoding response:", err)
+		return loginResponse{ErrStr: "Error requesting token"}
+	}
+
+	fmt.Println("Token:", tokenResp.Token)
+
+	jsonData, err := json.Marshal(creds)
+	if err != nil {
+		fmt.Println("Error marshaling credentials:", err)
+		return loginResponse{ErrStr: "Error preparing login request"}
+	}
+
+	// Create registration request
+	req, err := http.NewRequest("POST", serverUrl+"/_login/create", bytes.NewBuffer(jsonData))
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return loginResponse{ErrStr: "Error creating registration request"}
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("token", tokenResp.Token)
+
+	// Send the registration request
+	client := &http.Client{}
+	authResp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error during registration:", err)
+		return loginResponse{ErrStr: "Error during registration"}
+	}
+	defer authResp.Body.Close()
+
+	// Check response status
+	if authResp.StatusCode == 401 {
+		return loginResponse{ErrStr: "Invalid registration"}
+	}
+	if authResp.StatusCode != 200 {
+		return loginResponse{ErrStr: fmt.Sprintf("Server error: %d", authResp.StatusCode)}
+	}
+
+	// Since registration was successful, return the initial token
+	return loginResponse{Token: tokenResp.Token}
+}
+
 func main() {
 
 	initialChoice := 0
@@ -116,12 +175,7 @@ func main() {
 
 	var account gameModes.AccountData
 
-	// Handle the choice
-	switch initialChoice {
-	case 1:
-		// Handle login
-		println("Login selected")
-
+	loginW := func(registerInstead bool) {
 		loginApp := app.New()
 		loginWindow := loginApp.NewWindow("Login")
 
@@ -152,7 +206,12 @@ func main() {
 				Password: passwordEntry.Text,
 			}
 			account.Cred = creds
-			authn := login(creds)
+			var authn loginResponse
+			if registerInstead {
+				authn = register(creds)
+			} else {
+				authn = login(creds)
+			}
 
 			if authn.ErrStr != "" {
 				loadingSpinner.Hide()
@@ -188,6 +247,15 @@ func main() {
 		loginWindow.SetContent(loginVBox)
 		loginWindow.Resize(fyne.NewSize(300, 200))
 		loginWindow.ShowAndRun()
+	}
+
+	// Handle the choice
+	switch initialChoice {
+	case 1:
+		// Handle login
+		println("Login selected")
+
+		loginW(false)
 
 		//if the user exits dont bring up the next ui
 		if account.AuthToken == "" {
@@ -196,7 +264,13 @@ func main() {
 	case 2:
 		// Handle registration
 		println("Register selected")
-		return
+
+		loginW(true)
+
+		//if the user exits dont bring up the next ui
+		if account.AuthToken == "" {
+			return
+		}
 	case 3:
 		gameModes.PracticeGame()
 		return

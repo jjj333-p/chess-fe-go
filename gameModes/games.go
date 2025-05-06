@@ -596,6 +596,8 @@ func Games(account AccountData, serverUrl string) bool {
 				if err != nil {
 					fyne.Do(func() {
 						dialog.ShowInformation("Error checking last move", err.Error(), gameWindow)
+						gameloopRunning.Store(false)
+						gameWindow.Close()
 					})
 					continue
 				}
