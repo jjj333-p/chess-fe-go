@@ -732,3 +732,87 @@ func Games(account AccountData, serverUrl string) bool {
 
 	return true
 }
+
+func Profile(account AccountData, serverUrl string) {
+	profileApp := app.New()
+	profileWindow := profileApp.NewWindow("User Profile")
+
+	userSelector, users, err := CreateUserSelector(account.AuthToken, serverUrl)
+	if err != nil {
+		dialog.ShowError(err, profileWindow)
+	}
+
+	var profileForm *fyne.Container
+	var selectedUserObj *DbUser
+
+	userSelector.OnChanged = func(s string) {
+		for _, user := range users {
+			if user.Username == s {
+				selectedUserObj = &user
+				break
+			}
+		}
+
+		profileForm.RemoveAll()
+		profileForm.Add(widget.NewLabel("Profile"))
+		profileForm.Add(userSelector)
+		profileForm.Add(widget.NewLabel("Username:"))
+		profileForm.Add(widget.NewLabel(selectedUserObj.Username))
+		profileForm.Add(widget.NewLabel("User ID:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.UID)))
+		profileForm.Add(widget.NewLabel("Current Elo:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.CurrentElo)))
+		profileForm.Add(widget.NewLabel("Peak Elo:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.PeakElo)))
+		profileForm.Add(widget.NewLabel("Current Rank:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.CurrentRank)))
+		profileForm.Add(widget.NewLabel("Peak Rank:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.PeakRank)))
+		profileForm.Add(widget.NewLabel("Games Won:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.GamesWon)))
+		profileForm.Add(widget.NewLabel("Games Lost:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.GamesLost)))
+		profileForm.Add(widget.NewLabel("Games Draw:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.GamesDraw)))
+		profileForm.Add(widget.NewLabel("Total Games:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.TotalGames)))
+		profileForm.Add(widget.NewLabel("Win Streak:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.WinStreak)))
+		profileForm.Add(widget.NewLabel("Lose Streak:"))
+		profileForm.Add(widget.NewLabel(fmt.Sprintf("%d", selectedUserObj.LoseStreak)))
+	}
+
+	profileForm = container.NewVBox(
+		widget.NewLabel("Profile"),
+		userSelector,
+		widget.NewLabel("Username:"),
+		widget.NewLabel(""),
+		widget.NewLabel("User ID:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Current Elo:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Peak Elo:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Current Rank:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Peak Rank:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Games Won:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Games Lost:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Games Draw:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Total Games:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Win Streak:"),
+		widget.NewLabel(""),
+		widget.NewLabel("Lose Streak:"),
+		widget.NewLabel(""),
+	)
+
+	content := container.NewVScroll(profileForm)
+	profileWindow.SetContent(content)
+	profileWindow.Resize(fyne.NewSize(300, 400))
+	profileWindow.ShowAndRun()
+}

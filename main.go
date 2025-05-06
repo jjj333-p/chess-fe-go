@@ -300,10 +300,16 @@ func main() {
 			menuWindow.Close()
 		})
 
+		profileBtn := widget.NewButton("View Profile", func() {
+			menuChoice = 4
+			menuWindow.Close()
+		})
+
 		menuContent := container.NewCenter(container.NewVBox(
 			practiceBtn,
 			onlineGameBtn,
 			pastGamesBtn,
+			profileBtn,
 		))
 
 		menuWindow.SetContent(menuContent)
@@ -321,6 +327,10 @@ func main() {
 			returnToMenu = gameModes.Games(account, serverUrl)
 		case 3:
 			fmt.Println("View Past Games")
+		case 4:
+			fmt.Println("View Profile")
+			returnToMenu = true
+			gameModes.Profile(account, serverUrl)
 		default:
 			panic("Unknow menu choice")
 		}
