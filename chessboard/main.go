@@ -629,7 +629,7 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 	}
 }
 
-func (self *ChessBoard) MovePiece(from *Location, to *Location, reverse bool) {
+func (self *ChessBoard) MovePiece(from *Location, to *Location, reverse bool) bool {
 
 	fmt.Println("moving from", from, "to", to)
 
@@ -643,7 +643,7 @@ func (self *ChessBoard) MovePiece(from *Location, to *Location, reverse bool) {
 	if self.Tiles[from.Rank][from.File].Piece.PieceType == "" &&
 		(last.PieceType == "" || !reverse) {
 		fmt.Println("not moving empty element (this should not happen)")
-		return
+		return false
 	}
 
 	hold := self.Tiles[to.Rank][to.File].Piece
@@ -682,6 +682,7 @@ func (self *ChessBoard) MovePiece(from *Location, to *Location, reverse bool) {
 		self.discard = append(self.discard, hold)
 	}
 
+	return true
 }
 
 func NewChessBoard() *ChessBoard {

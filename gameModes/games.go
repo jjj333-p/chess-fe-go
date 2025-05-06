@@ -708,13 +708,16 @@ func Games(account AccountData, serverUrl string) bool {
 
 			}
 
-			moves = append(moves, move)
-			fmt.Println(len(moves), "moves", moves)
-
+			updateMoveStore := true
 			if viewingHistorical.Load() {
 				fmt.Println("Not updating grid as we are viewing historical move")
 			} else {
-				fyne.Do(func() { board.MovePiece(move.From, move.To, false) })
+				fyne.DoAndWait(func() { updateMoveStore = board.MovePiece(move.From, move.To, false) })
+			}
+
+			if updateMoveStore {
+				moves = append(moves, move)
+				fmt.Println(len(moves), "moves", moves)
 				viewedMove.Store(int32(len(moves)))
 			}
 			updateViewingText()
