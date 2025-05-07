@@ -177,7 +177,13 @@ func main() {
 
 	loginW := func(registerInstead bool) {
 		loginApp := app.New()
-		loginWindow := loginApp.NewWindow("Login")
+		var windowTitle string
+		if registerInstead {
+			windowTitle = "Register"
+		} else {
+			windowTitle = "Login"
+		}
+		loginWindow := loginApp.NewWindow(windowTitle)
 
 		usernameEntry := widget.NewEntry()
 		usernameEntry.SetPlaceHolder("Username")
@@ -339,6 +345,8 @@ func main() {
 			returnToMenu = gameModes.Games(account, serverUrl)
 		case 3:
 			fmt.Println("View Past Games")
+			gameModes.OldGames(account, serverUrl)
+			returnToMenu = true
 		case 4:
 			fmt.Println("View Profile")
 			returnToMenu = true

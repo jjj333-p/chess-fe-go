@@ -457,7 +457,7 @@ func Games(account AccountData, serverUrl string) bool {
 	})
 
 	gameApp := app.New()
-	gameWindow := gameApp.NewWindow("Practice Game")
+	gameWindow := gameApp.NewWindow("Online Game")
 
 	viewingHistorical := atomic.Bool{}
 	viewedMove := atomic.Int32{}
