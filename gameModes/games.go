@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -605,9 +606,12 @@ func Games(account AccountData, serverUrl string) bool {
 				ldbm, err := fetchLastMove(selectedGame.GameID, account.AuthToken, serverUrl)
 				if err != nil {
 					fyne.Do(func() {
-						dialog.ShowInformation("Error checking last move", err.Error(), gameWindow)
+						if strings.HasSuffix(err.Error(), "412") {
+							dialog.ShowInformation("Game Over", "The game has ended because someone has won.", gameWindow)
+						} else {
+							dialog.ShowInformation("Error checking last move", err.Error(), gameWindow)
+						}
 						gameloopRunning.Store(false)
-						gameWindow.Close()
 					})
 					continue
 				}
