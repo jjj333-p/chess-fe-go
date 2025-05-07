@@ -583,6 +583,24 @@ func (self *ChessBoard) MoveChooser(rank int, file int) chan *Location {
 			}
 		}
 
+		fmt.Println("considering double move: rank", rank, "is Black", tile.Piece.Black)
+		if (rank == 1 && !tile.Piece.Black) ||
+			(rank == 6 && tile.Piece.Black) {
+			if tile.Piece.Black {
+				targetRank -= 1
+			} else {
+				targetRank += 1
+			}
+			SecondFowardMoveTile := self.Tiles[targetRank][file]
+
+			if SecondFowardMoveTile.Piece.PieceType == "" {
+				fmt.Println(SecondFowardMoveTile.Name)
+				enableMoveButton(SecondFowardMoveTile)
+			} else {
+				fmt.Println("Cannot move pawn foward 2 as a", SecondFowardMoveTile.Piece.PieceType, "is in the way.")
+			}
+		}
+
 		fmt.Println("The pawn can move", moveableSpots, "spaces.")
 	case "rook":
 		rookLogic()
